@@ -1,0 +1,265 @@
+#!/bin/sh
+# postinst — автоматическая настройка после установки punto-switcher
+# Запускается от root при: sudo dpkg -i punto-switcher_*.deb
+# Читает конфиги KDE пользователя и настраивает Fcitx5 без каких-либо
+# дополнительных действий со стороны пользователя.
+
+set -e
+
+# ─── Найти текущего пользователя ────────────────────────────────────────────
+find_target_users() {
+    # Пользователи с активными сессиями (кто запустил sudo dpkg -i)
+    who 2>/dev/null | awk '{print $1}' | sort -u | grep -v '^root$' || true
+    # Дополнительно: пользователи с домашними директориями
+    getent passwd | awk -F: '$3>=1000 && $3<65534 && $6~/^\/home/ {print $1}' | sort -u || true
+}
+
+# ─── Читать KDE раскладки из kxkbrc ─────────────────────────────────────────
+get_layouts() {
+    local home="$1"
+    local kxkbrc="${home}/.config/kxkbrc"
+    local profile="${home}/.config/fcitx5/profile"
+    local layouts=""
+
+    # Приоритет 1: из уже существующего fcitx5 profile
+    if [ -f "$profile" ]; then
+        layouts=$(grep '^Name=keyboard-' "$profile" | cut -d- -f2- | tr '\n' ',' | sed 's/,$//')
+    fi
+
+    # Приоритет 2: из kxkbrc (KDE keyboard settings)
+    if [ -z "$layouts" ] && [ -f "$kxkbrc" ]; then
+        layouts=$(grep '^LayoutList=' "$kxkbrc" | head -1 | cut -d= -f2 | tr -d ' ')
+    fi
+
+    # Fallback: минимальный набор для punto-switcher
+    [ -z "$layouts" ] && layouts="us,ru"
+
+    # Punto-switcher требует русскую раскладку — добавить если нет
+    case ",${layouts}," in
+        *,ru,*) ;;
+        *) layouts="${layouts},ru" ;;
+    esac
+
+    # Добавить US как базовую латинскую раскладку если её нет
+    case ",${layouts}," in
+        *,us,*|*,gb,*|*,de,*|*,fr,*|*,es,*|*,it,*|*,pt,*|*,nl,*|*,pl,*) ;;
+        *) layouts="us,${layouts}" ;;
+    esac
+    echo "$layouts"
+}
+
+# ─── Читать комбинацию переключения раскладок ────────────────────────────────
+get_switch_key() {
+    local home="$1"
+    local ksrc="${home}/.config/kglobalshortcutsrc"
+    local kxkbrc="${home}/.config/kxkbrc"
+    local raw="" shortcut=""
+
+    # Источник 1: kglobalshortcutsrc — [KDE Keyboard Layout Switcher] (Plasma 6)
+    if [ -f "$ksrc" ]; then
+        raw=$(awk '/^\[KDE Keyboard Layout Switcher\]/{found=1; next}
+                   /^\[/{found=0}
+                   found && /^Switch to Next Keyboard Layout=/{print; exit}' "$ksrc" \
+              | cut -d= -f2-)
+        # Fallback: [keyboard] group (Plasma 5)
+        if [ -z "$raw" ]; then
+            raw=$(awk '/^\[keyboard\]/{found=1; next}
+                       /^\[/{found=0}
+                       found && /^Switch to Next Keyboard Layout=/{print; exit}' "$ksrc" \
+                  | cut -d= -f2-)
+        fi
+    fi
+
+    # Формат: "Control,Meta+Alt+K,Описание" — берём первое поле
+    shortcut=$(printf '%s' "$raw" | cut -d, -f1 | tr -d ' ')
+    [ "$shortcut" = "none" ] && shortcut=""
+
+    # Источник 2: xkb Options в kxkbrc (grp:xxx_toggle)
+    # Используем ISO_Next_Group нотацию — это то что fcitx5 понимает для xkb group
+    if [ -z "$shortcut" ] && [ -f "$kxkbrc" ]; then
+        local xkb_opt
+        xkb_opt=$(grep '^Options=' "$kxkbrc" | head -1 | cut -d= -f2)
+        case "$xkb_opt" in
+            *grp:alt_shift_toggle*)   shortcut="Alt+ISO_Next_Group" ;;
+            *grp:ctrl_shift_toggle*)  shortcut="Control+ISO_Next_Group" ;;
+            *grp:ctrl_alt_toggle*)    shortcut="Control+Alt+ISO_Next_Group" ;;
+            *grp:win_switch*)         shortcut="Super_L" ;;
+            *grp:caps_toggle*)        shortcut="Caps_Lock" ;;
+            *grp:ctrl_toggle*)        shortcut="Control_L" ;;
+            *grp:alt_space_toggle*)   shortcut="Alt+space" ;;
+            *grp:toggle*)             shortcut="Alt_R" ;;
+        esac
+    fi
+
+    # Перевод KDE key names (из kglobalshortcutsrc) → Fcitx5
+    case "$shortcut" in
+        Control|Ctrl)               shortcut="Control_L" ;;
+        Alt)                        shortcut="Alt_L" ;;
+        Shift)                      shortcut="Shift_L" ;;
+        "Alt+Shift"|"Shift+Alt")    shortcut="Alt+ISO_Next_Group" ;;
+        "Ctrl+Shift"|"Shift+Ctrl")  shortcut="Control+ISO_Next_Group" ;;
+        "Ctrl+Alt"|"Alt+Ctrl")      shortcut="Ctrl+Alt_L" ;;
+        "Super"|"Win"|"Meta")       shortcut="Super_L" ;;
+        "")                         shortcut="Control_L" ;;
+    esac
+    echo "$shortcut"
+}
+
+# ─── Настроить одного пользователя ──────────────────────────────────────────
+configure_user() {
+    local user="$1"
+    local home
+    home=$(getent passwd "$user" | cut -d: -f6) || return 0
+    [ -d "$home" ] || return 0
+
+    local layouts switch_key
+    layouts=$(get_layouts "$home")
+    switch_key=$(get_switch_key "$home")
+
+    # ---- Создать директории ----
+    mkdir -p "${home}/.config/fcitx5/conf" \
+             "${home}/.config/plasma-workspace/env"
+
+    # ---- Fcitx5 profile (раскладки клавиатуры) ----
+    # Стратегия: если профиль уже существует, только добавить недостающие
+    # раскладки в первую группу. Если профиля нет — создать.
+    local profile="${home}/.config/fcitx5/profile"
+    local first_layout="${layouts%%,*}"
+
+    if [ -f "$profile" ]; then
+        # Добавить раскладки которых нет в профиле
+        local old_ifs="$IFS"
+        IFS=','
+        local items_count
+        items_count=$(grep -c '^Name=keyboard-' "$profile" 2>/dev/null || echo 0)
+        for l in $layouts; do
+            if ! grep -q "^Name=keyboard-${l}$" "$profile" 2>/dev/null; then
+                # Добавить в конец первой группы перед [Groups/1] или [GroupOrder]
+                printf '\n[Groups/0/Items/%d]\nName=keyboard-%s\nLayout=\n' \
+                    "$items_count" "$l" >> "$profile"
+                items_count=$((items_count + 1))
+            fi
+        done
+        IFS="$old_ifs"
+    else
+        # Создать новый профиль — одна группа, все раскладки
+        {
+            printf '[Groups/0]\n'
+            printf 'Name=Default\n'
+            printf 'Default Layout=%s\n' "$first_layout"
+            printf 'DefaultIM=keyboard-%s\n\n' "$first_layout"
+            local idx=0
+            local old_ifs="$IFS"
+            IFS=','
+            for l in $layouts; do
+                printf '[Groups/0/Items/%d]\n' "$idx"
+                printf 'Name=keyboard-%s\n' "$l"
+                printf 'Layout=\n\n'
+                idx=$((idx + 1))
+            done
+            IFS="$old_ifs"
+            printf '[GroupOrder]\n0=Default\n'
+        } > "$profile"
+    fi
+
+    # ---- Fcitx5 config (комбинация переключения) ----
+    # Если конфиг уже существует и содержит TriggerKeys — НЕ перезаписываем:
+    # пользователь мог настроить свою комбинацию вручную через fcitx5-configtool.
+    local config="${home}/.config/fcitx5/config"
+    local has_trigger=0
+    [ -f "$config" ] && grep -q '^\[Hotkey/TriggerKeys\]' "$config" 2>/dev/null && has_trigger=1
+
+    if [ "$has_trigger" -eq 0 ]; then
+        {
+            printf '[Hotkey]\n'
+            printf 'EnumerateWithTriggerKeys=True\n'
+            printf 'EnumerateSkipFirst=False\n\n'
+            printf '[Hotkey/TriggerKeys]\n'
+            printf '0=%s\n\n' "$switch_key"
+            printf '[Hotkey/EnumerateForwardKeys]\n'
+            printf '0=%s\n\n' "$switch_key"
+            printf '[Hotkey/EnumerateBackwardKeys]\n'
+            printf '0=\n\n'
+            printf '[Hotkey/ActivateKeys]\n'
+            printf '0=Hangul\n\n'
+            printf '[Hotkey/DeactivateKeys]\n'
+            printf '0=Hangul_Romaja\n'
+        } > "$config"
+    fi
+
+    # ---- Plasma env vars (только XMODIFIERS для XWayland/X11 приложений) ----
+    # QT_IM_MODULE и GTK_IM_MODULE намеренно НЕ устанавливаются:
+    # в Plasma 6 + Wayland они вызывают предупреждение "Wayland IM already working"
+    # и не нужны для нативных Wayland-приложений.
+    mkdir -p "${home}/.config/plasma-workspace/env"
+    cat > "${home}/.config/plasma-workspace/env/fcitx5-im.sh" << 'ENVEOF'
+export XMODIFIERS="@im=fcitx"
+ENVEOF
+    chmod +x "${home}/.config/plasma-workspace/env/fcitx5-im.sh"
+
+    # ---- Права доступа ----
+    chown -R "${user}:" \
+        "${home}/.config/fcitx5" \
+        "${home}/.config/plasma-workspace" 2>/dev/null || true
+
+    # ---- Перезапустить Fcitx5 с WAYLAND_DISPLAY и переподключить KWin ----
+    local uid
+    uid=$(id -u "$user" 2>/dev/null) || return 0
+    local bus="/run/user/${uid}/bus"
+    local wayland_sock="/run/user/${uid}/wayland-0"
+
+    if [ -S "$bus" ] && [ -S "$wayland_sock" ]; then
+        su -s /bin/sh - "$user" -c "
+            export DBUS_SESSION_BUS_ADDRESS=unix:path=${bus}
+            export XDG_RUNTIME_DIR=/run/user/${uid}
+            # Если fcitx5 уже корректно подключён к KWin (wayland-launcher запущен)
+            # — только перезагружаем конфиг (не убиваем процесс).
+            # Если запущен «голый» fcitx5 без launcher — убиваем и просим KWin
+            # перезапустить через InputMethod D-Bus интерфейс.
+            if pgrep -x fcitx5-wayland-launcher >/dev/null 2>&1; then
+                # Уже правильно запущен через KWin — просто reload
+                fcitx5-remote -r 2>/dev/null || true
+            else
+                # Убить bare-fcitx5, попросить KWin перезапустить
+                pkill -x fcitx5 2>/dev/null || true
+                sleep 1
+                pkill -9 -x fcitx5 2>/dev/null || true
+                sleep 0.5
+                # Метод 1: InputMethod D-Bus (Plasma 6)
+                qdbus6 org.kde.KWin /InputMethod setActive false 2>/dev/null || true
+                sleep 0.5
+                qdbus6 org.kde.KWin /InputMethod setActive true  2>/dev/null || \
+                qdbus  org.kde.KWin /InputMethod setActive true  2>/dev/null || true
+                sleep 1
+                # Метод 2: KWin reconfigure (fallback)
+                if ! pgrep -x fcitx5 >/dev/null 2>&1; then
+                    qdbus6 org.kde.KWin /KWin reconfigure 2>/dev/null || \
+                    qdbus  org.kde.KWin /KWin reconfigure 2>/dev/null || true
+                    sleep 1
+                fi
+                # Метод 3: запустить fcitx5 вручную если ничего не помогло
+                if ! pgrep -x fcitx5 >/dev/null 2>&1; then
+                    WAYLAND_DISPLAY=wayland-0 fcitx5 -d 2>/dev/null || true
+                fi
+            fi
+        " 2>/dev/null || true
+    fi
+}
+
+# ─── Точка входа ────────────────────────────────────────────────────────────
+case "$1" in
+    configure|upgrade)
+        # Собрать список уникальных пользователей для настройки
+        configured_users=""
+        for user in $(find_target_users); do
+            # Не настраивать одного и того же дважды
+            case " $configured_users " in
+                *" $user "*) continue ;;
+            esac
+            configure_user "$user" && configured_users="$configured_users $user"
+        done
+        ;;
+esac
+
+#DEBHELPER#
+exit 0

@@ -1,0 +1,321 @@
+#!/bin/sh
+# postinst — автоматическая настройка после установки punto-switcher
+# Запускается от root при: sudo dpkg -i punto-switcher_*.deb
+# Читает конфиги KDE пользователя и настраивает Fcitx5 без каких-либо
+# дополнительных действий со стороны пользователя.
+
+set -e
+
+# ─── Найти текущего пользователя ────────────────────────────────────────────
+find_target_users() {
+    # Пользователи с активными сессиями (кто запустил sudo dpkg -i)
+    who 2>/dev/null | awk '{print $1}' | sort -u | grep -v '^root$' || true
+    # Дополнительно: пользователи с домашними директориями
+    getent passwd | awk -F: '$3>=1000 && $3<65534 && $6~/^\/home/ {print $1}' | sort -u || true
+}
+
+# ─── Читать KDE раскладки из kxkbrc ─────────────────────────────────────────
+get_layouts() {
+    local home="$1"
+    local kxkbrc="${home}/.config/kxkbrc"
+    local profile="${home}/.config/fcitx5/profile"
+    local layouts=""
+
+    # Приоритет 1: из уже существующего fcitx5 profile
+    if [ -f "$profile" ]; then
+        layouts=$(grep '^Name=keyboard-' "$profile" | cut -d- -f2- | tr '\n' ',' | sed 's/,$//')
+    fi
+
+    # Приоритет 2: из kxkbrc (KDE keyboard settings)
+    if [ -z "$layouts" ] && [ -f "$kxkbrc" ]; then
+        layouts=$(grep '^LayoutList=' "$kxkbrc" | head -1 | cut -d= -f2 | tr -d ' ')
+    fi
+
+    # Fallback: минимальный набор для punto-switcher
+    [ -z "$layouts" ] && layouts="us,ru"
+
+    # Punto-switcher требует русскую раскладку — добавить если нет
+    case ",${layouts}," in
+        *,ru,*) ;;
+        *) layouts="${layouts},ru" ;;
+    esac
+
+    # Добавить US как базовую латинскую раскладку если её нет
+    case ",${layouts}," in
+        *,us,*|*,gb,*|*,de,*|*,fr,*|*,es,*|*,it,*|*,pt,*|*,nl,*|*,pl,*) ;;
+        *) layouts="us,${layouts}" ;;
+    esac
+    echo "$layouts"
+}
+
+# ─── Читать комбинацию переключения раскладок ────────────────────────────────
+get_switch_key() {
+    local home="$1"
+    local ksrc="${home}/.config/kglobalshortcutsrc"
+    local kxkbrc="${home}/.config/kxkbrc"
+    local raw="" shortcut=""
+
+    # Источник 1: kglobalshortcutsrc — [KDE Keyboard Layout Switcher] (Plasma 6)
+    if [ -f "$ksrc" ]; then
+        raw=$(awk '/^\[KDE Keyboard Layout Switcher\]/{found=1; next}
+                   /^\[/{found=0}
+                   found && /^Switch to Next Keyboard Layout=/{print; exit}' "$ksrc" \
+              | cut -d= -f2-)
+        # Fallback: [keyboard] group (Plasma 5)
+        if [ -z "$raw" ]; then
+            raw=$(awk '/^\[keyboard\]/{found=1; next}
+                       /^\[/{found=0}
+                       found && /^Switch to Next Keyboard Layout=/{print; exit}' "$ksrc" \
+                  | cut -d= -f2-)
+        fi
+    fi
+
+    # Формат: "Control,Meta+Alt+K,Описание" — берём первое поле
+    shortcut=$(printf '%s' "$raw" | cut -d, -f1 | tr -d ' ')
+    [ "$shortcut" = "none" ] && shortcut=""
+
+    # Источник 2: xkb Options в kxkbrc (grp:xxx_toggle)
+    # Используем ISO_Next_Group нотацию — это то что fcitx5 понимает для xkb group
+    if [ -z "$shortcut" ] && [ -f "$kxkbrc" ]; then
+        local xkb_opt
+        xkb_opt=$(grep '^Options=' "$kxkbrc" | head -1 | cut -d= -f2)
+        case "$xkb_opt" in
+            *grp:alt_shift_toggle*)   shortcut="Alt+ISO_Next_Group" ;;
+            *grp:ctrl_shift_toggle*)  shortcut="Control+ISO_Next_Group" ;;
+            *grp:ctrl_alt_toggle*)    shortcut="Control+Alt+ISO_Next_Group" ;;
+            *grp:win_switch*)         shortcut="Super_L" ;;
+            *grp:caps_toggle*)        shortcut="Caps_Lock" ;;
+            *grp:ctrl_toggle*)        shortcut="Control_L" ;;
+            *grp:alt_space_toggle*)   shortcut="Alt+space" ;;
+            *grp:toggle*)             shortcut="Alt_R" ;;
+        esac
+    fi
+
+    # Перевод KDE key names (из kglobalshortcutsrc) → Fcitx5
+    # ВАЖНО: не используем ISO_Next_Group — он требует XKB опцию grp:xxx_toggle
+    # которую мы не гарантируем в kxkbrc. Используем прямые keysym-имена
+    # которые Fcitx5 перехватывает напрямую без зависимости от XKB Options.
+    case "$shortcut" in
+        Control|Ctrl)               shortcut="Control_L" ;;
+        Alt)                        shortcut="Alt_L" ;;
+        Shift)                      shortcut="Shift_L" ;;
+        "Alt+Shift"|"Shift+Alt")    shortcut="Alt+Shift_L" ;;
+        "Ctrl+Shift"|"Shift+Ctrl")  shortcut="Control+Shift_L" ;;
+        "Ctrl+Alt"|"Alt+Ctrl")      shortcut="Control+Alt_L" ;;
+        "Super"|"Win"|"Meta")       shortcut="Super_L" ;;
+        # Дефолт — Ctrl+Shift (стандарт в РФ/СНГ для переключения раскладок)
+        "")                         shortcut="Control+Shift_L" ;;
+    esac
+    echo "$shortcut"
+}
+
+# ─── Записать kxkbrc с раскладками пользователя ─────────────────────────────
+# Когда Fcitx5 является virtual keyboard в KWin, именно kxkbrc определяет
+# какие XKB-группы доступны. Если kxkbrc содержит только "us", то при
+# переключении в keyboard-ru XWayland-приложения (Electron, браузер) по-прежнему
+# получают US keysyms, потому что глобальный XKB-state KDE не включает "ru".
+# Поэтому мы ВСЕГДА пишем kxkbrc с полным списком раскладок.
+write_kxkbrc() {
+    local home="$1"
+    local layouts="$2"
+    local user="$3"
+    local switch_key="$4"
+    local kxkbrc="${home}/.config/kxkbrc"
+
+    # Читаем варианты из существующего kxkbrc (пользователь мог настроить)
+    local variant_list="" existing_options=""
+    if [ -f "$kxkbrc" ]; then
+        variant_list=$(grep '^VariantList=' "$kxkbrc" | head -1 | cut -d= -f2-)
+        existing_options=$(grep '^Options=' "$kxkbrc" | head -1 | cut -d= -f2-)
+    fi
+
+    # Строим VariantList — пустые варианты для каждой раскладки
+    local layout_count
+    layout_count=$(echo "$layouts" | tr ',' '\n' | wc -l)
+    if [ -z "$variant_list" ]; then
+        variant_list=$(printf ',%.0s' $(seq 1 $((layout_count - 1))))
+    fi
+
+    # XKB Options: если уже есть — оставляем; если нет — добавляем grp: для switch_key
+    # Это важно для XWayland-приложений: они видят XKB global state.
+    local xkb_options="$existing_options"
+    if [ -z "$xkb_options" ] && [ -n "$switch_key" ]; then
+        case "$switch_key" in
+            Control+Shift_L|Shift+Control_L) xkb_options="grp:ctrl_shift_toggle" ;;
+            Alt+Shift_L|Shift+Alt_L)          xkb_options="grp:alt_shift_toggle" ;;
+            Control+Alt_L|Alt+Control_L)      xkb_options="grp:ctrl_alt_toggle" ;;
+            Control_L)                         xkb_options="grp:ctrl_toggle" ;;
+            Alt_L)                             xkb_options="grp:toggle" ;;
+        esac
+    fi
+
+    {
+        printf '[Layout]\n'
+        printf 'DisplayNames=%s\n' "$(echo "$layouts" | tr ',' '\n' | sed 's/.*//' | tr '\n' ',' | sed 's/,$//')"
+        printf 'LayoutList=%s\n' "$layouts"
+        printf 'Options=%s\n' "$xkb_options"
+        printf 'Use=true\n'
+        printf 'VariantList=%s\n' "$variant_list"
+    } > "$kxkbrc"
+    chown "${user}:" "$kxkbrc" 2>/dev/null || true
+}
+
+# ─── Настроить одного пользователя ──────────────────────────────────────────
+configure_user() {
+    local user="$1"
+    local home
+    home=$(getent passwd "$user" | cut -d: -f6) || return 0
+    [ -d "$home" ] || return 0
+
+    local layouts switch_key
+    layouts=$(get_layouts "$home")
+    switch_key=$(get_switch_key "$home")
+
+    # ---- Сначала остановить fcitx5, чтобы он не перезаписал конфиги при выходе ----
+    # При SIGTERM fcitx5 сохраняет конфиг на диск. Если писать конфиги ДО kill,
+    # fcitx5 перезапишет их при завершении. Поэтому: kill → wait → write configs.
+    local uid
+    uid=$(id -u "$user" 2>/dev/null) || return 0
+    local bus="/run/user/${uid}/bus"
+    local wayland_sock="/run/user/${uid}/wayland-0"
+
+    if [ -S "$bus" ]; then
+        su -s /bin/sh - "$user" -c "
+            export DBUS_SESSION_BUS_ADDRESS=unix:path=${bus}
+            export XDG_RUNTIME_DIR=/run/user/${uid}
+            pkill -x fcitx5 2>/dev/null || true
+            sleep 1
+            pkill -9 -x fcitx5 2>/dev/null || true
+            sleep 0.3
+        " 2>/dev/null || true
+    fi
+
+    # ---- Создать директории ----
+    mkdir -p "${home}/.config/fcitx5/conf" \
+             "${home}/.config/plasma-workspace/env"
+
+    # ---- Fcitx5 profile (раскладки клавиатуры) ----
+    # Стратегия: если профиль уже существует, только добавить недостающие
+    # раскладки в первую группу. Если профиля нет — создать.
+    local profile="${home}/.config/fcitx5/profile"
+    local first_layout="${layouts%%,*}"
+
+    if [ -f "$profile" ]; then
+        # Добавить раскладки которых нет в профиле
+        local old_ifs="$IFS"
+        IFS=','
+        local items_count
+        items_count=$(grep -c '^Name=keyboard-' "$profile" 2>/dev/null || echo 0)
+        for l in $layouts; do
+            if ! grep -q "^Name=keyboard-${l}$" "$profile" 2>/dev/null; then
+                # Добавить в конец первой группы перед [Groups/1] или [GroupOrder]
+                printf '\n[Groups/0/Items/%d]\nName=keyboard-%s\nLayout=\n' \
+                    "$items_count" "$l" >> "$profile"
+                items_count=$((items_count + 1))
+            fi
+        done
+        IFS="$old_ifs"
+    else
+        # Создать новый профиль — одна группа, все раскладки
+        {
+            printf '[Groups/0]\n'
+            printf 'Name=Default\n'
+            printf 'Default Layout=%s\n' "$first_layout"
+            printf 'DefaultIM=keyboard-%s\n\n' "$first_layout"
+            local idx=0
+            local old_ifs="$IFS"
+            IFS=','
+            for l in $layouts; do
+                printf '[Groups/0/Items/%d]\n' "$idx"
+                printf 'Name=keyboard-%s\n' "$l"
+                printf 'Layout=\n\n'
+                idx=$((idx + 1))
+            done
+            IFS="$old_ifs"
+            printf '[GroupOrder]\n0=Default\n'
+        } > "$profile"
+    fi
+
+    # ---- kxkbrc: глобальные XKB раскладки ----
+    # Критично для XWayland-приложений (Electron, Chromium, браузер):
+    # они используют глобальный XKB-state KDE, а не Fcitx5-internal state.
+    # Без ru в kxkbrc эти приложения всегда печатают по-английски.
+    write_kxkbrc "$home" "$layouts" "$user" "$switch_key"
+
+    # ---- Fcitx5 config (комбинация переключения) ----
+    # Всегда перезаписываем с обнаруженным switch_key — если fcitx5 был убит (pkill)
+    # выше, он уже сохранил своё состояние. Теперь пишем правильный конфиг.
+    local config="${home}/.config/fcitx5/config"
+    {
+        printf '[Hotkey]\n'
+        printf 'EnumerateWithTriggerKeys=True\n'
+        printf 'EnumerateSkipFirst=False\n\n'
+        printf '[Hotkey/TriggerKeys]\n'
+        printf '0=%s\n\n' "$switch_key"
+        printf '[Hotkey/EnumerateForwardKeys]\n'
+        printf '0=%s\n\n' "$switch_key"
+        printf '[Hotkey/EnumerateBackwardKeys]\n'
+        printf '0=\n\n'
+        printf '[Hotkey/ActivateKeys]\n'
+        printf '0=Hangul\n\n'
+        printf '[Hotkey/DeactivateKeys]\n'
+        printf '0=Hangul_Romaja\n'
+    } > "$config"
+
+    # ---- Plasma env vars ----
+    # Все три переменные нужны для надёжной работы:
+    #   GTK_IM_MODULE — GTK2/GTK3 приложения
+    #   QT_IM_MODULE  — Qt5 приложения (Qt6 использует QT_IM_MODULES)
+    #   XMODIFIERS    — X11/XWayland приложения (старый стиль)
+    # Когда KWin управляет fcitx5 через Wayland-протокол, GTK/Qt переменные
+    # избыточны, но безвредны — в худшем случае fcitx5 выведет диагностическую
+    # заметку в лог. Без них Qt/GTK приложения не увидят fcitx5 вообще.
+    mkdir -p "${home}/.config/plasma-workspace/env"
+    cat > "${home}/.config/plasma-workspace/env/fcitx5-im.sh" << 'ENVEOF'
+export GTK_IM_MODULE=fcitx
+export QT_IM_MODULE=fcitx
+export XMODIFIERS="@im=fcitx"
+ENVEOF
+    chmod +x "${home}/.config/plasma-workspace/env/fcitx5-im.sh"
+
+    # ---- Права доступа ----
+    chown -R "${user}:" \
+        "${home}/.config/fcitx5" \
+        "${home}/.config/plasma-workspace" 2>/dev/null || true
+
+    # ---- Запустить Fcitx5 (уже убит выше, конфиги уже записаны) ----
+    # fcitx5 был остановлен в начале configure_user ДО записи конфигов,
+    # поэтому теперь просто запускаем его с новыми настройками.
+    if [ -S "$bus" ]; then
+        su -s /bin/sh - "$user" -c "
+            export DBUS_SESSION_BUS_ADDRESS=unix:path=${bus}
+            export XDG_RUNTIME_DIR=/run/user/${uid}
+            export WAYLAND_DISPLAY=wayland-0
+            # Метод 1: попросить KWin запустить fcitx5 через Wayland virtual keyboard
+            qdbus6 org.kde.KWin /KWin reconfigure 2>/dev/null || true
+            sleep 1
+            # Метод 2: если KWin не запустил — запустить напрямую
+            if ! pgrep -x fcitx5 >/dev/null 2>&1; then
+                fcitx5 -d 2>/dev/null || true
+            fi
+        " 2>/dev/null || true
+    fi
+}
+
+# ─── Точка входа ────────────────────────────────────────────────────────────
+case "$1" in
+    configure|upgrade)
+        # Собрать список уникальных пользователей для настройки
+        configured_users=""
+        for user in $(find_target_users); do
+            # Не настраивать одного и того же дважды
+            case " $configured_users " in
+                *" $user "*) continue ;;
+            esac
+            configure_user "$user" && configured_users="$configured_users $user"
+        done
+        ;;
+esac
+
+#DEBHELPER#
+exit 0

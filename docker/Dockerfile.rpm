@@ -1,0 +1,45 @@
+# Builder image for Fedora .rpm package
+# Usage:
+#   docker build -f docker/Dockerfile.rpm -t punto-rpm-builder .
+#   docker run --rm -v "$PWD/dist:/dist" punto-rpm-builder
+#
+# The .rpm artefact will be placed in dist/ on the host.
+
+FROM fedora:41
+
+# ---- Build dependencies ----
+RUN dnf install -y \
+    gcc-c++ \
+    cmake \
+    make \
+    rpm-build \
+    rpmdevtools \
+    pkgconfig \
+    fcitx5-devel \
+    qt6-qtbase-devel \
+    qt6-qttools-devel \
+    gtest-devel \
+    extra-cmake-modules \
+    && dnf clean all
+
+# Set up rpmbuild tree
+RUN rpmdev-setuptree
+
+# Copy source and create tarball
+COPY . /tmp/punto-switcher-1.0.0/
+
+RUN tar czf ~/rpmbuild/SOURCES/punto-switcher-1.0.0.tar.gz \
+        -C /tmp punto-switcher-1.0.0/
+
+# Copy spec file
+RUN cp /tmp/punto-switcher-1.0.0/packaging/rpm/punto-switcher.spec \
+       ~/rpmbuild/SPECS/
+
+# Build the RPM
+RUN rpmbuild -bb ~/rpmbuild/SPECS/punto-switcher.spec \
+    --define "_build_ncpus $(nproc)"
+
+# Copy artefact to /dist
+CMD mkdir -p /dist && \
+    find ~/rpmbuild/RPMS -name "*.rpm" -exec cp {} /dist/ \; && \
+    echo "Done: $(ls /dist/*.rpm)"

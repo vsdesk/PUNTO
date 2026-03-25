@@ -1,0 +1,8 @@
+set(__QT_DEPLOY_TARGET_punto-core_FILE /home/i/PUNTO/_build/src/core/libpunto-core.a)
+set(__QT_DEPLOY_TARGET_punto-core_TYPE STATIC_LIBRARY)
+set(__QT_DEPLOY_TARGET_punto-switcher-engine_FILE /home/i/PUNTO/_build/lib/fcitx5/punto-switcher-engine.so)
+set(__QT_DEPLOY_TARGET_punto-switcher-engine_TYPE MODULE_LIBRARY)
+set(__QT_DEPLOY_TARGET_punto-switcher-config_FILE /home/i/PUNTO/_build/src/gui/punto-switcher-config)
+set(__QT_DEPLOY_TARGET_punto-switcher-config_TYPE EXECUTABLE)
+set(__QT_DEPLOY_TARGET_punto-tests_FILE /home/i/PUNTO/_build/tests/punto-tests)
+set(__QT_DEPLOY_TARGET_punto-tests_TYPE EXECUTABLE)

@@ -1,0 +1,53 @@
+# Builder image for Ubuntu/Debian .deb package
+# Usage:
+#   docker build -f docker/Dockerfile.deb -t punto-deb-builder .
+#   docker run --rm -v "$PWD/dist:/dist" punto-deb-builder
+#
+# The .deb artefact will be placed in dist/ on the host.
+
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# ---- Build dependencies ----
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    pkg-config \
+    debhelper \
+    devscripts \
+    dh-cmake \
+    libfcitx5core-dev \
+    libfcitx5utils-dev \
+    libfcitx5config-dev \
+    fcitx5 \
+    fcitx5-modules \
+    qt6-base-dev \
+    qt6-tools-dev \
+    qt6-tools-dev-tools \
+    libgtest-dev \
+    extra-cmake-modules \
+    dpkg-dev \
+    fakeroot \
+    lintian \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+
+# Copy source
+COPY . /build/punto-switcher-1.0.0/
+
+# Create orig tarball (required for debuild)
+RUN tar czf punto-switcher_1.0.0.orig.tar.gz punto-switcher-1.0.0/
+
+# Copy debian packaging files into the source tree
+RUN cp -r /build/punto-switcher-1.0.0/packaging/deb \
+          /build/punto-switcher-1.0.0/debian
+
+WORKDIR /build/punto-switcher-1.0.0
+
+# Build the package (no GPG signing, binary-only)
+RUN dpkg-buildpackage -us -uc -b -j$(nproc)
+
+# Copy artefact to /dist
+CMD mkdir -p /dist && cp /build/*.deb /dist/ && echo "Done: $(ls /dist/*.deb)"

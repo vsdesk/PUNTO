@@ -1,0 +1,26 @@
+#!/usr/bin/make -f
+# Debhelper rules file for punto-switcher
+
+export DH_VERBOSE = 1
+
+# Use dh with cmake helper
+%:
+	dh $@ --buildsystem=cmake
+
+override_dh_auto_configure:
+	dh_auto_configure -- \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DBUILD_TESTING=OFF \
+		-DCMAKE_INSTALL_PREFIX=/usr \
+		-DCMAKE_INSTALL_LIBDIR=lib/$(DEB_HOST_MULTIARCH)
+
+override_dh_auto_test:
+	# Tests are run separately; skip during package build to keep it fast
+	true
+
+override_dh_strip:
+	dh_strip --dbgsym-migration='punto-switcher-dbg (<< 1.0.0~)'
+
+# Ensure shared lib is found by ldd-based shlibs detection
+override_dh_shlibdeps:
+	dh_shlibdeps

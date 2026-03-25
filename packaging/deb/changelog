@@ -1,0 +1,7 @@
+punto-switcher (1.0.0-1) unstable; urgency=medium
+
+  * Initial release.
+  * Fcitx5 module for automatic ru<->en keyboard layout correction on Wayland.
+  * Features: auto-switch, swap-last-word, swap-selection, Qt6 config GUI.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Mon, 25 Mar 2026 00:00:00 +0000

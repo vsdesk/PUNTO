@@ -1,0 +1,20 @@
+Package: punto-switcher
+Version: 1.0.0-1
+Architecture: amd64
+Maintainer: PuntoSwitcher Maintainer <maintainer@example.com>
+Depends: fcitx5, libfcitx5core7, libqt6widgets6, libqt6core6t64 | libqt6core6
+Recommends: fcitx5-frontend-gtk4 | fcitx5-frontend-gtk3, kde-config-fcitx5
+Description: Punto-style automatic ru<->en keyboard layout corrector for Wayland
+ PuntoSwitcher is a Fcitx5 module that provides Punto Switcher-like
+ functionality for Wayland: automatic detection and correction of text
+ typed in the wrong keyboard layout (Russian/English), manual swap of
+ the last typed word, and swap of selected text.
+ .
+ Features:
+  - Auto-switch: detects wrong layout at word boundaries using bigram scoring
+  - Swap last word hotkey (default: Alt+')
+  - Swap selection hotkey (default: Alt+Shift+')
+  - Toggle auto-switch hotkey (default: Alt+Shift+A)
+  - Qt6 configuration GUI
+ .
+ Works with any Fcitx5-supported input toolkit on Wayland.

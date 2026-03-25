@@ -1,0 +1,5 @@
+/home/i/PUNTO/_dist/deb/usr/lib/x86_64-linux-gnu/fcitx5/punto-switcher-engine.so
+/home/i/PUNTO/_dist/deb/usr/share/fcitx5/addon/punto-switcher.conf
+/home/i/PUNTO/_dist/deb/usr/bin/punto-switcher-config
+/home/i/PUNTO/_dist/deb/usr/share/applications/punto-switcher-config.desktop
+/home/i/PUNTO/_dist/deb/usr/bin/punto-switcher-setup

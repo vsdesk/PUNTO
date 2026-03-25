@@ -1,0 +1,1488 @@
+Start testing: Mar 25 12:37 MSK
+----------------------------------------------------------
+1/55 Testing: CharMappingChar.LowercaseRuToEn
+1/55 Test: CharMappingChar.LowercaseRuToEn
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=CharMappingChar.LowercaseRuToEn" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"CharMappingChar.LowercaseRuToEn" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = CharMappingChar.LowercaseRuToEn
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CharMappingChar
+[ RUN      ] CharMappingChar.LowercaseRuToEn
+[       OK ] CharMappingChar.LowercaseRuToEn (0 ms)
+[----------] 1 test from CharMappingChar (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"CharMappingChar.LowercaseRuToEn" end time: Mar 25 12:37 MSK
+"CharMappingChar.LowercaseRuToEn" time elapsed: 00:00:00
+----------------------------------------------------------
+
+2/55 Testing: CharMappingChar.LowercaseEnToRu
+2/55 Test: CharMappingChar.LowercaseEnToRu
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=CharMappingChar.LowercaseEnToRu" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"CharMappingChar.LowercaseEnToRu" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = CharMappingChar.LowercaseEnToRu
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CharMappingChar
+[ RUN      ] CharMappingChar.LowercaseEnToRu
+[       OK ] CharMappingChar.LowercaseEnToRu (0 ms)
+[----------] 1 test from CharMappingChar (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"CharMappingChar.LowercaseEnToRu" end time: Mar 25 12:37 MSK
+"CharMappingChar.LowercaseEnToRu" time elapsed: 00:00:00
+----------------------------------------------------------
+
+3/55 Testing: CharMappingChar.UppercaseRuToEn
+3/55 Test: CharMappingChar.UppercaseRuToEn
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=CharMappingChar.UppercaseRuToEn" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"CharMappingChar.UppercaseRuToEn" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = CharMappingChar.UppercaseRuToEn
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CharMappingChar
+[ RUN      ] CharMappingChar.UppercaseRuToEn
+[       OK ] CharMappingChar.UppercaseRuToEn (0 ms)
+[----------] 1 test from CharMappingChar (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"CharMappingChar.UppercaseRuToEn" end time: Mar 25 12:37 MSK
+"CharMappingChar.UppercaseRuToEn" time elapsed: 00:00:00
+----------------------------------------------------------
+
+4/55 Testing: CharMappingChar.UppercaseEnToRu
+4/55 Test: CharMappingChar.UppercaseEnToRu
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=CharMappingChar.UppercaseEnToRu" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"CharMappingChar.UppercaseEnToRu" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = CharMappingChar.UppercaseEnToRu
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CharMappingChar
+[ RUN      ] CharMappingChar.UppercaseEnToRu
+[       OK ] CharMappingChar.UppercaseEnToRu (0 ms)
+[----------] 1 test from CharMappingChar (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"CharMappingChar.UppercaseEnToRu" end time: Mar 25 12:37 MSK
+"CharMappingChar.UppercaseEnToRu" time elapsed: 00:00:00
+----------------------------------------------------------
+
+5/55 Testing: CharMappingChar.NoMappingPassthrough
+5/55 Test: CharMappingChar.NoMappingPassthrough
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=CharMappingChar.NoMappingPassthrough" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"CharMappingChar.NoMappingPassthrough" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = CharMappingChar.NoMappingPassthrough
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CharMappingChar
+[ RUN      ] CharMappingChar.NoMappingPassthrough
+[       OK ] CharMappingChar.NoMappingPassthrough (0 ms)
+[----------] 1 test from CharMappingChar (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"CharMappingChar.NoMappingPassthrough" end time: Mar 25 12:37 MSK
+"CharMappingChar.NoMappingPassthrough" time elapsed: 00:00:00
+----------------------------------------------------------
+
+6/55 Testing: CharMappingChar.YoUppercase
+6/55 Test: CharMappingChar.YoUppercase
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=CharMappingChar.YoUppercase" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"CharMappingChar.YoUppercase" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = CharMappingChar.YoUppercase
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CharMappingChar
+[ RUN      ] CharMappingChar.YoUppercase
+[       OK ] CharMappingChar.YoUppercase (0 ms)
+[----------] 1 test from CharMappingChar (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"CharMappingChar.YoUppercase" end time: Mar 25 12:37 MSK
+"CharMappingChar.YoUppercase" time elapsed: 00:00:00
+----------------------------------------------------------
+
+7/55 Testing: CharMappingWord.SwapRussianWordToEnglish
+7/55 Test: CharMappingWord.SwapRussianWordToEnglish
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=CharMappingWord.SwapRussianWordToEnglish" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"CharMappingWord.SwapRussianWordToEnglish" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = CharMappingWord.SwapRussianWordToEnglish
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CharMappingWord
+[ RUN      ] CharMappingWord.SwapRussianWordToEnglish
+[       OK ] CharMappingWord.SwapRussianWordToEnglish (0 ms)
+[----------] 1 test from CharMappingWord (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"CharMappingWord.SwapRussianWordToEnglish" end time: Mar 25 12:37 MSK
+"CharMappingWord.SwapRussianWordToEnglish" time elapsed: 00:00:00
+----------------------------------------------------------
+
+8/55 Testing: CharMappingWord.SwapEnglishWordToRussian
+8/55 Test: CharMappingWord.SwapEnglishWordToRussian
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=CharMappingWord.SwapEnglishWordToRussian" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"CharMappingWord.SwapEnglishWordToRussian" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = CharMappingWord.SwapEnglishWordToRussian
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CharMappingWord
+[ RUN      ] CharMappingWord.SwapEnglishWordToRussian
+[       OK ] CharMappingWord.SwapEnglishWordToRussian (0 ms)
+[----------] 1 test from CharMappingWord (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"CharMappingWord.SwapEnglishWordToRussian" end time: Mar 25 12:37 MSK
+"CharMappingWord.SwapEnglishWordToRussian" time elapsed: 00:00:00
+----------------------------------------------------------
+
+9/55 Testing: CharMappingWord.SwapTitleCase
+9/55 Test: CharMappingWord.SwapTitleCase
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=CharMappingWord.SwapTitleCase" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"CharMappingWord.SwapTitleCase" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = CharMappingWord.SwapTitleCase
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CharMappingWord
+[ RUN      ] CharMappingWord.SwapTitleCase
+[       OK ] CharMappingWord.SwapTitleCase (0 ms)
+[----------] 1 test from CharMappingWord (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"CharMappingWord.SwapTitleCase" end time: Mar 25 12:37 MSK
+"CharMappingWord.SwapTitleCase" time elapsed: 00:00:00
+----------------------------------------------------------
+
+10/55 Testing: CharMappingWord.SwapAllCaps
+10/55 Test: CharMappingWord.SwapAllCaps
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=CharMappingWord.SwapAllCaps" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"CharMappingWord.SwapAllCaps" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = CharMappingWord.SwapAllCaps
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CharMappingWord
+[ RUN      ] CharMappingWord.SwapAllCaps
+[       OK ] CharMappingWord.SwapAllCaps (0 ms)
+[----------] 1 test from CharMappingWord (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"CharMappingWord.SwapAllCaps" end time: Mar 25 12:37 MSK
+"CharMappingWord.SwapAllCaps" time elapsed: 00:00:00
+----------------------------------------------------------
+
+11/55 Testing: CharMappingWord.DoubleSwapIsIdentity
+11/55 Test: CharMappingWord.DoubleSwapIsIdentity
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=CharMappingWord.DoubleSwapIsIdentity" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"CharMappingWord.DoubleSwapIsIdentity" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = CharMappingWord.DoubleSwapIsIdentity
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CharMappingWord
+[ RUN      ] CharMappingWord.DoubleSwapIsIdentity
+[       OK ] CharMappingWord.DoubleSwapIsIdentity (0 ms)
+[----------] 1 test from CharMappingWord (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"CharMappingWord.DoubleSwapIsIdentity" end time: Mar 25 12:37 MSK
+"CharMappingWord.DoubleSwapIsIdentity" time elapsed: 00:00:00
+----------------------------------------------------------
+
+12/55 Testing: CharMappingWord.DoubleSwapEnglish
+12/55 Test: CharMappingWord.DoubleSwapEnglish
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=CharMappingWord.DoubleSwapEnglish" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"CharMappingWord.DoubleSwapEnglish" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = CharMappingWord.DoubleSwapEnglish
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CharMappingWord
+[ RUN      ] CharMappingWord.DoubleSwapEnglish
+[       OK ] CharMappingWord.DoubleSwapEnglish (0 ms)
+[----------] 1 test from CharMappingWord (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"CharMappingWord.DoubleSwapEnglish" end time: Mar 25 12:37 MSK
+"CharMappingWord.DoubleSwapEnglish" time elapsed: 00:00:00
+----------------------------------------------------------
+
+13/55 Testing: CharMappingWord.YoCharacter
+13/55 Test: CharMappingWord.YoCharacter
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=CharMappingWord.YoCharacter" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"CharMappingWord.YoCharacter" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = CharMappingWord.YoCharacter
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CharMappingWord
+[ RUN      ] CharMappingWord.YoCharacter
+[       OK ] CharMappingWord.YoCharacter (0 ms)
+[----------] 1 test from CharMappingWord (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"CharMappingWord.YoCharacter" end time: Mar 25 12:37 MSK
+"CharMappingWord.YoCharacter" time elapsed: 00:00:00
+----------------------------------------------------------
+
+14/55 Testing: CharMappingWord.HardSign
+14/55 Test: CharMappingWord.HardSign
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=CharMappingWord.HardSign" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"CharMappingWord.HardSign" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = CharMappingWord.HardSign
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CharMappingWord
+[ RUN      ] CharMappingWord.HardSign
+[       OK ] CharMappingWord.HardSign (0 ms)
+[----------] 1 test from CharMappingWord (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"CharMappingWord.HardSign" end time: Mar 25 12:37 MSK
+"CharMappingWord.HardSign" time elapsed: 00:00:00
+----------------------------------------------------------
+
+15/55 Testing: CharMappingWord.NonLettersPassThrough
+15/55 Test: CharMappingWord.NonLettersPassThrough
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=CharMappingWord.NonLettersPassThrough" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"CharMappingWord.NonLettersPassThrough" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = CharMappingWord.NonLettersPassThrough
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CharMappingWord
+[ RUN      ] CharMappingWord.NonLettersPassThrough
+[       OK ] CharMappingWord.NonLettersPassThrough (0 ms)
+[----------] 1 test from CharMappingWord (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"CharMappingWord.NonLettersPassThrough" end time: Mar 25 12:37 MSK
+"CharMappingWord.NonLettersPassThrough" time elapsed: 00:00:00
+----------------------------------------------------------
+
+16/55 Testing: CharMappingLayout.DetectRussian
+16/55 Test: CharMappingLayout.DetectRussian
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=CharMappingLayout.DetectRussian" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"CharMappingLayout.DetectRussian" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = CharMappingLayout.DetectRussian
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CharMappingLayout
+[ RUN      ] CharMappingLayout.DetectRussian
+[       OK ] CharMappingLayout.DetectRussian (0 ms)
+[----------] 1 test from CharMappingLayout (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"CharMappingLayout.DetectRussian" end time: Mar 25 12:37 MSK
+"CharMappingLayout.DetectRussian" time elapsed: 00:00:00
+----------------------------------------------------------
+
+17/55 Testing: CharMappingLayout.DetectEnglish
+17/55 Test: CharMappingLayout.DetectEnglish
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=CharMappingLayout.DetectEnglish" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"CharMappingLayout.DetectEnglish" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = CharMappingLayout.DetectEnglish
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CharMappingLayout
+[ RUN      ] CharMappingLayout.DetectEnglish
+[       OK ] CharMappingLayout.DetectEnglish (0 ms)
+[----------] 1 test from CharMappingLayout (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"CharMappingLayout.DetectEnglish" end time: Mar 25 12:37 MSK
+"CharMappingLayout.DetectEnglish" time elapsed: 00:00:00
+----------------------------------------------------------
+
+18/55 Testing: CharMappingLayout.DetectMixed
+18/55 Test: CharMappingLayout.DetectMixed
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=CharMappingLayout.DetectMixed" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"CharMappingLayout.DetectMixed" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = CharMappingLayout.DetectMixed
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CharMappingLayout
+[ RUN      ] CharMappingLayout.DetectMixed
+[       OK ] CharMappingLayout.DetectMixed (0 ms)
+[----------] 1 test from CharMappingLayout (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"CharMappingLayout.DetectMixed" end time: Mar 25 12:37 MSK
+"CharMappingLayout.DetectMixed" time elapsed: 00:00:00
+----------------------------------------------------------
+
+19/55 Testing: WordBoundary.SpaceIsBoundary
+19/55 Test: WordBoundary.SpaceIsBoundary
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=WordBoundary.SpaceIsBoundary" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"WordBoundary.SpaceIsBoundary" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = WordBoundary.SpaceIsBoundary
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WordBoundary
+[ RUN      ] WordBoundary.SpaceIsBoundary
+[       OK ] WordBoundary.SpaceIsBoundary (0 ms)
+[----------] 1 test from WordBoundary (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"WordBoundary.SpaceIsBoundary" end time: Mar 25 12:37 MSK
+"WordBoundary.SpaceIsBoundary" time elapsed: 00:00:00
+----------------------------------------------------------
+
+20/55 Testing: WordBoundary.PunctIsBoundary
+20/55 Test: WordBoundary.PunctIsBoundary
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=WordBoundary.PunctIsBoundary" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"WordBoundary.PunctIsBoundary" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = WordBoundary.PunctIsBoundary
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WordBoundary
+[ RUN      ] WordBoundary.PunctIsBoundary
+[       OK ] WordBoundary.PunctIsBoundary (0 ms)
+[----------] 1 test from WordBoundary (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"WordBoundary.PunctIsBoundary" end time: Mar 25 12:37 MSK
+"WordBoundary.PunctIsBoundary" time elapsed: 00:00:00
+----------------------------------------------------------
+
+21/55 Testing: WordBoundary.LetterIsNotBoundary
+21/55 Test: WordBoundary.LetterIsNotBoundary
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=WordBoundary.LetterIsNotBoundary" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"WordBoundary.LetterIsNotBoundary" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = WordBoundary.LetterIsNotBoundary
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WordBoundary
+[ RUN      ] WordBoundary.LetterIsNotBoundary
+[       OK ] WordBoundary.LetterIsNotBoundary (0 ms)
+[----------] 1 test from WordBoundary (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"WordBoundary.LetterIsNotBoundary" end time: Mar 25 12:37 MSK
+"WordBoundary.LetterIsNotBoundary" time elapsed: 00:00:00
+----------------------------------------------------------
+
+22/55 Testing: SwapLastWord.SimpleEnglishWord
+22/55 Test: SwapLastWord.SimpleEnglishWord
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=SwapLastWord.SimpleEnglishWord" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"SwapLastWord.SimpleEnglishWord" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = SwapLastWord.SimpleEnglishWord
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from SwapLastWord
+[ RUN      ] SwapLastWord.SimpleEnglishWord
+[       OK ] SwapLastWord.SimpleEnglishWord (0 ms)
+[----------] 1 test from SwapLastWord (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"SwapLastWord.SimpleEnglishWord" end time: Mar 25 12:37 MSK
+"SwapLastWord.SimpleEnglishWord" time elapsed: 00:00:00
+----------------------------------------------------------
+
+23/55 Testing: SwapLastWord.SimpleRussianWord
+23/55 Test: SwapLastWord.SimpleRussianWord
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=SwapLastWord.SimpleRussianWord" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"SwapLastWord.SimpleRussianWord" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = SwapLastWord.SimpleRussianWord
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from SwapLastWord
+[ RUN      ] SwapLastWord.SimpleRussianWord
+[       OK ] SwapLastWord.SimpleRussianWord (0 ms)
+[----------] 1 test from SwapLastWord (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"SwapLastWord.SimpleRussianWord" end time: Mar 25 12:37 MSK
+"SwapLastWord.SimpleRussianWord" time elapsed: 00:00:00
+----------------------------------------------------------
+
+24/55 Testing: SwapLastWord.WordAfterSpace
+24/55 Test: SwapLastWord.WordAfterSpace
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=SwapLastWord.WordAfterSpace" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"SwapLastWord.WordAfterSpace" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = SwapLastWord.WordAfterSpace
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from SwapLastWord
+[ RUN      ] SwapLastWord.WordAfterSpace
+[       OK ] SwapLastWord.WordAfterSpace (0 ms)
+[----------] 1 test from SwapLastWord (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"SwapLastWord.WordAfterSpace" end time: Mar 25 12:37 MSK
+"SwapLastWord.WordAfterSpace" time elapsed: 00:00:00
+----------------------------------------------------------
+
+25/55 Testing: SwapLastWord.WordAfterBoundaryChar
+25/55 Test: SwapLastWord.WordAfterBoundaryChar
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=SwapLastWord.WordAfterBoundaryChar" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"SwapLastWord.WordAfterBoundaryChar" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = SwapLastWord.WordAfterBoundaryChar
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from SwapLastWord
+[ RUN      ] SwapLastWord.WordAfterBoundaryChar
+[       OK ] SwapLastWord.WordAfterBoundaryChar (0 ms)
+[----------] 1 test from SwapLastWord (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"SwapLastWord.WordAfterBoundaryChar" end time: Mar 25 12:37 MSK
+"SwapLastWord.WordAfterBoundaryChar" time elapsed: 00:00:00
+----------------------------------------------------------
+
+26/55 Testing: SwapLastWord.TextEndsWithBoundary
+26/55 Test: SwapLastWord.TextEndsWithBoundary
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=SwapLastWord.TextEndsWithBoundary" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"SwapLastWord.TextEndsWithBoundary" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = SwapLastWord.TextEndsWithBoundary
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from SwapLastWord
+[ RUN      ] SwapLastWord.TextEndsWithBoundary
+[       OK ] SwapLastWord.TextEndsWithBoundary (0 ms)
+[----------] 1 test from SwapLastWord (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"SwapLastWord.TextEndsWithBoundary" end time: Mar 25 12:37 MSK
+"SwapLastWord.TextEndsWithBoundary" time elapsed: 00:00:00
+----------------------------------------------------------
+
+27/55 Testing: SwapLastWord.CursorAtStart
+27/55 Test: SwapLastWord.CursorAtStart
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=SwapLastWord.CursorAtStart" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"SwapLastWord.CursorAtStart" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = SwapLastWord.CursorAtStart
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from SwapLastWord
+[ RUN      ] SwapLastWord.CursorAtStart
+[       OK ] SwapLastWord.CursorAtStart (0 ms)
+[----------] 1 test from SwapLastWord (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"SwapLastWord.CursorAtStart" end time: Mar 25 12:37 MSK
+"SwapLastWord.CursorAtStart" time elapsed: 00:00:00
+----------------------------------------------------------
+
+28/55 Testing: SwapLastWord.OnlyBoundaryChars
+28/55 Test: SwapLastWord.OnlyBoundaryChars
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=SwapLastWord.OnlyBoundaryChars" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"SwapLastWord.OnlyBoundaryChars" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = SwapLastWord.OnlyBoundaryChars
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from SwapLastWord
+[ RUN      ] SwapLastWord.OnlyBoundaryChars
+[       OK ] SwapLastWord.OnlyBoundaryChars (0 ms)
+[----------] 1 test from SwapLastWord (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"SwapLastWord.OnlyBoundaryChars" end time: Mar 25 12:37 MSK
+"SwapLastWord.OnlyBoundaryChars" time elapsed: 00:00:00
+----------------------------------------------------------
+
+29/55 Testing: SwapLastWord.NoMappableChars
+29/55 Test: SwapLastWord.NoMappableChars
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=SwapLastWord.NoMappableChars" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"SwapLastWord.NoMappableChars" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = SwapLastWord.NoMappableChars
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from SwapLastWord
+[ RUN      ] SwapLastWord.NoMappableChars
+[       OK ] SwapLastWord.NoMappableChars (0 ms)
+[----------] 1 test from SwapLastWord (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"SwapLastWord.NoMappableChars" end time: Mar 25 12:37 MSK
+"SwapLastWord.NoMappableChars" time elapsed: 00:00:00
+----------------------------------------------------------
+
+30/55 Testing: SwapLastWord.HyphenInWord
+30/55 Test: SwapLastWord.HyphenInWord
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=SwapLastWord.HyphenInWord" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"SwapLastWord.HyphenInWord" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = SwapLastWord.HyphenInWord
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from SwapLastWord
+[ RUN      ] SwapLastWord.HyphenInWord
+[       OK ] SwapLastWord.HyphenInWord (0 ms)
+[----------] 1 test from SwapLastWord (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"SwapLastWord.HyphenInWord" end time: Mar 25 12:37 MSK
+"SwapLastWord.HyphenInWord" time elapsed: 00:00:00
+----------------------------------------------------------
+
+31/55 Testing: SwapSelection.BasicSelection
+31/55 Test: SwapSelection.BasicSelection
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=SwapSelection.BasicSelection" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"SwapSelection.BasicSelection" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = SwapSelection.BasicSelection
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from SwapSelection
+[ RUN      ] SwapSelection.BasicSelection
+[       OK ] SwapSelection.BasicSelection (0 ms)
+[----------] 1 test from SwapSelection (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"SwapSelection.BasicSelection" end time: Mar 25 12:37 MSK
+"SwapSelection.BasicSelection" time elapsed: 00:00:00
+----------------------------------------------------------
+
+32/55 Testing: SwapSelection.MultiWordSelection
+32/55 Test: SwapSelection.MultiWordSelection
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=SwapSelection.MultiWordSelection" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"SwapSelection.MultiWordSelection" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = SwapSelection.MultiWordSelection
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from SwapSelection
+[ RUN      ] SwapSelection.MultiWordSelection
+[       OK ] SwapSelection.MultiWordSelection (0 ms)
+[----------] 1 test from SwapSelection (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"SwapSelection.MultiWordSelection" end time: Mar 25 12:37 MSK
+"SwapSelection.MultiWordSelection" time elapsed: 00:00:00
+----------------------------------------------------------
+
+33/55 Testing: SwapSelection.EmptySelection
+33/55 Test: SwapSelection.EmptySelection
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=SwapSelection.EmptySelection" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"SwapSelection.EmptySelection" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = SwapSelection.EmptySelection
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from SwapSelection
+[ RUN      ] SwapSelection.EmptySelection
+[       OK ] SwapSelection.EmptySelection (0 ms)
+[----------] 1 test from SwapSelection (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"SwapSelection.EmptySelection" end time: Mar 25 12:37 MSK
+"SwapSelection.EmptySelection" time elapsed: 00:00:00
+----------------------------------------------------------
+
+34/55 Testing: SwapSelection.UppercasePreserved
+34/55 Test: SwapSelection.UppercasePreserved
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=SwapSelection.UppercasePreserved" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"SwapSelection.UppercasePreserved" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = SwapSelection.UppercasePreserved
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from SwapSelection
+[ RUN      ] SwapSelection.UppercasePreserved
+[       OK ] SwapSelection.UppercasePreserved (0 ms)
+[----------] 1 test from SwapSelection (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"SwapSelection.UppercasePreserved" end time: Mar 25 12:37 MSK
+"SwapSelection.UppercasePreserved" time elapsed: 00:00:00
+----------------------------------------------------------
+
+35/55 Testing: SwapRoundTrip.RussianWords
+35/55 Test: SwapRoundTrip.RussianWords
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=SwapRoundTrip.RussianWords" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"SwapRoundTrip.RussianWords" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = SwapRoundTrip.RussianWords
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from SwapRoundTrip
+[ RUN      ] SwapRoundTrip.RussianWords
+[       OK ] SwapRoundTrip.RussianWords (0 ms)
+[----------] 1 test from SwapRoundTrip (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"SwapRoundTrip.RussianWords" end time: Mar 25 12:37 MSK
+"SwapRoundTrip.RussianWords" time elapsed: 00:00:00
+----------------------------------------------------------
+
+36/55 Testing: SwapRoundTrip.EnglishWords
+36/55 Test: SwapRoundTrip.EnglishWords
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=SwapRoundTrip.EnglishWords" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"SwapRoundTrip.EnglishWords" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = SwapRoundTrip.EnglishWords
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from SwapRoundTrip
+[ RUN      ] SwapRoundTrip.EnglishWords
+[       OK ] SwapRoundTrip.EnglishWords (0 ms)
+[----------] 1 test from SwapRoundTrip (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"SwapRoundTrip.EnglishWords" end time: Mar 25 12:37 MSK
+"SwapRoundTrip.EnglishWords" time elapsed: 00:00:00
+----------------------------------------------------------
+
+37/55 Testing: Heuristic.EnglishGarbageFromRussianWord
+37/55 Test: Heuristic.EnglishGarbageFromRussianWord
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=Heuristic.EnglishGarbageFromRussianWord" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"Heuristic.EnglishGarbageFromRussianWord" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = Heuristic.EnglishGarbageFromRussianWord
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Heuristic
+[ RUN      ] Heuristic.EnglishGarbageFromRussianWord
+[       OK ] Heuristic.EnglishGarbageFromRussianWord (0 ms)
+[----------] 1 test from Heuristic (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"Heuristic.EnglishGarbageFromRussianWord" end time: Mar 25 12:37 MSK
+"Heuristic.EnglishGarbageFromRussianWord" time elapsed: 00:00:00
+----------------------------------------------------------
+
+38/55 Testing: Heuristic.RealEnglishWordNotSwitched
+38/55 Test: Heuristic.RealEnglishWordNotSwitched
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=Heuristic.RealEnglishWordNotSwitched" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"Heuristic.RealEnglishWordNotSwitched" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = Heuristic.RealEnglishWordNotSwitched
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Heuristic
+[ RUN      ] Heuristic.RealEnglishWordNotSwitched
+[       OK ] Heuristic.RealEnglishWordNotSwitched (0 ms)
+[----------] 1 test from Heuristic (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"Heuristic.RealEnglishWordNotSwitched" end time: Mar 25 12:37 MSK
+"Heuristic.RealEnglishWordNotSwitched" time elapsed: 00:00:00
+----------------------------------------------------------
+
+39/55 Testing: Heuristic.RealEnglishWordThe
+39/55 Test: Heuristic.RealEnglishWordThe
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=Heuristic.RealEnglishWordThe" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"Heuristic.RealEnglishWordThe" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = Heuristic.RealEnglishWordThe
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Heuristic
+[ RUN      ] Heuristic.RealEnglishWordThe
+[       OK ] Heuristic.RealEnglishWordThe (0 ms)
+[----------] 1 test from Heuristic (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"Heuristic.RealEnglishWordThe" end time: Mar 25 12:37 MSK
+"Heuristic.RealEnglishWordThe" time elapsed: 00:00:00
+----------------------------------------------------------
+
+40/55 Testing: Heuristic.RealRussianWordNotSwitched
+40/55 Test: Heuristic.RealRussianWordNotSwitched
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=Heuristic.RealRussianWordNotSwitched" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"Heuristic.RealRussianWordNotSwitched" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = Heuristic.RealRussianWordNotSwitched
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Heuristic
+[ RUN      ] Heuristic.RealRussianWordNotSwitched
+[       OK ] Heuristic.RealRussianWordNotSwitched (0 ms)
+[----------] 1 test from Heuristic (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"Heuristic.RealRussianWordNotSwitched" end time: Mar 25 12:37 MSK
+"Heuristic.RealRussianWordNotSwitched" time elapsed: 00:00:00
+----------------------------------------------------------
+
+41/55 Testing: Heuristic.ShortWordIgnored
+41/55 Test: Heuristic.ShortWordIgnored
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=Heuristic.ShortWordIgnored" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"Heuristic.ShortWordIgnored" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = Heuristic.ShortWordIgnored
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Heuristic
+[ RUN      ] Heuristic.ShortWordIgnored
+[       OK ] Heuristic.ShortWordIgnored (0 ms)
+[----------] 1 test from Heuristic (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"Heuristic.ShortWordIgnored" end time: Mar 25 12:37 MSK
+"Heuristic.ShortWordIgnored" time elapsed: 00:00:00
+----------------------------------------------------------
+
+42/55 Testing: Heuristic.DisabledNeverSwitches
+42/55 Test: Heuristic.DisabledNeverSwitches
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=Heuristic.DisabledNeverSwitches" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"Heuristic.DisabledNeverSwitches" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = Heuristic.DisabledNeverSwitches
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Heuristic
+[ RUN      ] Heuristic.DisabledNeverSwitches
+[       OK ] Heuristic.DisabledNeverSwitches (0 ms)
+[----------] 1 test from Heuristic (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"Heuristic.DisabledNeverSwitches" end time: Mar 25 12:37 MSK
+"Heuristic.DisabledNeverSwitches" time elapsed: 00:00:00
+----------------------------------------------------------
+
+43/55 Testing: Heuristic.NumberGuard
+43/55 Test: Heuristic.NumberGuard
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=Heuristic.NumberGuard" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"Heuristic.NumberGuard" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = Heuristic.NumberGuard
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Heuristic
+[ RUN      ] Heuristic.NumberGuard
+[       OK ] Heuristic.NumberGuard (0 ms)
+[----------] 1 test from Heuristic (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"Heuristic.NumberGuard" end time: Mar 25 12:37 MSK
+"Heuristic.NumberGuard" time elapsed: 00:00:00
+----------------------------------------------------------
+
+44/55 Testing: Heuristic.EmailGuard
+44/55 Test: Heuristic.EmailGuard
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=Heuristic.EmailGuard" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"Heuristic.EmailGuard" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = Heuristic.EmailGuard
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Heuristic
+[ RUN      ] Heuristic.EmailGuard
+[       OK ] Heuristic.EmailGuard (0 ms)
+[----------] 1 test from Heuristic (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"Heuristic.EmailGuard" end time: Mar 25 12:37 MSK
+"Heuristic.EmailGuard" time elapsed: 00:00:00
+----------------------------------------------------------
+
+45/55 Testing: Heuristic.UrlGuard
+45/55 Test: Heuristic.UrlGuard
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=Heuristic.UrlGuard" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"Heuristic.UrlGuard" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = Heuristic.UrlGuard
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Heuristic
+[ RUN      ] Heuristic.UrlGuard
+[       OK ] Heuristic.UrlGuard (0 ms)
+[----------] 1 test from Heuristic (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"Heuristic.UrlGuard" end time: Mar 25 12:37 MSK
+"Heuristic.UrlGuard" time elapsed: 00:00:00
+----------------------------------------------------------
+
+46/55 Testing: Heuristic.HighThresholdPreventsSwitch
+46/55 Test: Heuristic.HighThresholdPreventsSwitch
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=Heuristic.HighThresholdPreventsSwitch" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"Heuristic.HighThresholdPreventsSwitch" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = Heuristic.HighThresholdPreventsSwitch
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Heuristic
+[ RUN      ] Heuristic.HighThresholdPreventsSwitch
+[       OK ] Heuristic.HighThresholdPreventsSwitch (0 ms)
+[----------] 1 test from Heuristic (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"Heuristic.HighThresholdPreventsSwitch" end time: Mar 25 12:37 MSK
+"Heuristic.HighThresholdPreventsSwitch" time elapsed: 00:00:00
+----------------------------------------------------------
+
+47/55 Testing: Heuristic.LowThresholdAllowsSwitch
+47/55 Test: Heuristic.LowThresholdAllowsSwitch
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=Heuristic.LowThresholdAllowsSwitch" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"Heuristic.LowThresholdAllowsSwitch" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = Heuristic.LowThresholdAllowsSwitch
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Heuristic
+[ RUN      ] Heuristic.LowThresholdAllowsSwitch
+[       OK ] Heuristic.LowThresholdAllowsSwitch (0 ms)
+[----------] 1 test from Heuristic (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"Heuristic.LowThresholdAllowsSwitch" end time: Mar 25 12:37 MSK
+"Heuristic.LowThresholdAllowsSwitch" time elapsed: 00:00:00
+----------------------------------------------------------
+
+48/55 Testing: BigramScore.EnglishCommonBigrams
+48/55 Test: BigramScore.EnglishCommonBigrams
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=BigramScore.EnglishCommonBigrams" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"BigramScore.EnglishCommonBigrams" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = BigramScore.EnglishCommonBigrams
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from BigramScore
+[ RUN      ] BigramScore.EnglishCommonBigrams
+[       OK ] BigramScore.EnglishCommonBigrams (0 ms)
+[----------] 1 test from BigramScore (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"BigramScore.EnglishCommonBigrams" end time: Mar 25 12:37 MSK
+"BigramScore.EnglishCommonBigrams" time elapsed: 00:00:00
+----------------------------------------------------------
+
+49/55 Testing: BigramScore.RussianCommonBigrams
+49/55 Test: BigramScore.RussianCommonBigrams
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=BigramScore.RussianCommonBigrams" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"BigramScore.RussianCommonBigrams" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = BigramScore.RussianCommonBigrams
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from BigramScore
+[ RUN      ] BigramScore.RussianCommonBigrams
+[       OK ] BigramScore.RussianCommonBigrams (0 ms)
+[----------] 1 test from BigramScore (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"BigramScore.RussianCommonBigrams" end time: Mar 25 12:37 MSK
+"BigramScore.RussianCommonBigrams" time elapsed: 00:00:00
+----------------------------------------------------------
+
+50/55 Testing: BigramScore.GarbageScoresLow
+50/55 Test: BigramScore.GarbageScoresLow
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=BigramScore.GarbageScoresLow" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"BigramScore.GarbageScoresLow" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = BigramScore.GarbageScoresLow
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from BigramScore
+[ RUN      ] BigramScore.GarbageScoresLow
+[       OK ] BigramScore.GarbageScoresLow (0 ms)
+[----------] 1 test from BigramScore (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"BigramScore.GarbageScoresLow" end time: Mar 25 12:37 MSK
+"BigramScore.GarbageScoresLow" time elapsed: 00:00:00
+----------------------------------------------------------
+
+51/55 Testing: Guard.PureLettersNotGuarded
+51/55 Test: Guard.PureLettersNotGuarded
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=Guard.PureLettersNotGuarded" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"Guard.PureLettersNotGuarded" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = Guard.PureLettersNotGuarded
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Guard
+[ RUN      ] Guard.PureLettersNotGuarded
+[       OK ] Guard.PureLettersNotGuarded (0 ms)
+[----------] 1 test from Guard (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"Guard.PureLettersNotGuarded" end time: Mar 25 12:37 MSK
+"Guard.PureLettersNotGuarded" time elapsed: 00:00:00
+----------------------------------------------------------
+
+52/55 Testing: Guard.DigitsGuarded
+52/55 Test: Guard.DigitsGuarded
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=Guard.DigitsGuarded" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"Guard.DigitsGuarded" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = Guard.DigitsGuarded
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Guard
+[ RUN      ] Guard.DigitsGuarded
+[       OK ] Guard.DigitsGuarded (0 ms)
+[----------] 1 test from Guard (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"Guard.DigitsGuarded" end time: Mar 25 12:37 MSK
+"Guard.DigitsGuarded" time elapsed: 00:00:00
+----------------------------------------------------------
+
+53/55 Testing: Guard.AtSignGuarded
+53/55 Test: Guard.AtSignGuarded
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=Guard.AtSignGuarded" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"Guard.AtSignGuarded" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = Guard.AtSignGuarded
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Guard
+[ RUN      ] Guard.AtSignGuarded
+[       OK ] Guard.AtSignGuarded (0 ms)
+[----------] 1 test from Guard (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"Guard.AtSignGuarded" end time: Mar 25 12:37 MSK
+"Guard.AtSignGuarded" time elapsed: 00:00:00
+----------------------------------------------------------
+
+54/55 Testing: Guard.UrlGuarded
+54/55 Test: Guard.UrlGuarded
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=Guard.UrlGuarded" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"Guard.UrlGuarded" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = Guard.UrlGuarded
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from Guard
+[ RUN      ] Guard.UrlGuarded
+[       OK ] Guard.UrlGuarded (0 ms)
+[----------] 1 test from Guard (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"Guard.UrlGuarded" end time: Mar 25 12:37 MSK
+"Guard.UrlGuarded" time elapsed: 00:00:00
+----------------------------------------------------------
+
+55/55 Testing: ManualQA.ChecklistDocumented
+55/55 Test: ManualQA.ChecklistDocumented
+Command: "/home/i/PUNTO/_build/tests/punto-tests" "--gtest_filter=ManualQA.ChecklistDocumented" "--gtest_also_run_disabled_tests"
+Directory: /home/i/PUNTO/_build/tests
+"ManualQA.ChecklistDocumented" start time: Mar 25 12:37 MSK
+Output:
+----------------------------------------------------------
+Running main() from ./googletest/src/gtest_main.cc
+Note: Google Test filter = ManualQA.ChecklistDocumented
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from ManualQA
+[ RUN      ] ManualQA.ChecklistDocumented
+[       OK ] ManualQA.ChecklistDocumented (0 ms)
+[----------] 1 test from ManualQA (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"ManualQA.ChecklistDocumented" end time: Mar 25 12:37 MSK
+"ManualQA.ChecklistDocumented" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Mar 25 12:37 MSK

@@ -1,0 +1,2 @@
+/usr/bin/ar qc libpunto-core.a "CMakeFiles/punto-core.dir/CharMapping.cpp.o" "CMakeFiles/punto-core.dir/WordSwapper.cpp.o" "CMakeFiles/punto-core.dir/AutoSwitchHeuristic.cpp.o"
+/usr/bin/ranlib libpunto-core.a
