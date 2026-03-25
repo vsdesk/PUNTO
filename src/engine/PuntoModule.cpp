@@ -18,6 +18,48 @@ FCITX_DEFINE_LOG_CATEGORY(punto_log, "punto");
 #define PUNTO_DEBUG() FCITX_LOGC(punto_log, Debug)
 #define PUNTO_WARN()  FCITX_LOGC(punto_log, Warn)
 
+namespace {
+// Prevent our own injected keys (BackSpace / inserted Unicode) from confusing
+// the tracker via the PreInputMethod watcher.
+struct InternalInjectionGuard {
+    InputTracker* tracker = nullptr;
+    explicit InternalInjectionGuard(InputTracker* t) : tracker(t) {
+        if (tracker) tracker->beginInternal();
+    }
+    ~InternalInjectionGuard() {
+        if (tracker) tracker->endInternal();
+    }
+    InternalInjectionGuard(const InternalInjectionGuard&) = delete;
+    InternalInjectionGuard& operator=(const InternalInjectionGuard&) = delete;
+};
+
+static std::optional<std::string> prefixForLayout(CharMapping::Layout layout) {
+    if (layout == CharMapping::Layout::English) return std::string("keyboard-us");
+    if (layout == CharMapping::Layout::Russian) return std::string("keyboard-ru");
+    return std::nullopt;
+}
+
+static std::optional<std::string> prefixForOppositeLayout(CharMapping::Layout layout) {
+    if (layout == CharMapping::Layout::English) return std::string("keyboard-ru");
+    if (layout == CharMapping::Layout::Russian) return std::string("keyboard-us");
+    return std::nullopt;
+}
+
+static bool setIMByPrefix(fcitx::Instance* instance,
+                           fcitx::InputContext* ic,
+                           const std::string& prefix) {
+    const auto& group = instance->inputMethodManager().currentGroup();
+    for (const auto& item : group.inputMethodList()) {
+        if (item.name().rfind(prefix, 0) == 0) {
+            instance->setCurrentInputMethod(ic, item.name(), false);
+            PUNTO_DEBUG() << "IM switched to " << item.name();
+            return true;
+        }
+    }
+    return false;
+}
+} // namespace
+
 // ---------------------------------------------------------------------------
 // Helper: is this keysym a word-boundary character?
 // Must stay in sync with WordSwapper::isWordBoundary.
@@ -62,6 +104,25 @@ static bool isWordBoundaryKeySym(uint32_t sym) {
         default:
             return false;
     }
+}
+
+static std::string keysymToBoundaryUtf8(uint32_t sym) {
+    switch (sym) {
+        case FcitxKey_Return:
+        case FcitxKey_KP_Enter:
+            return std::string("\n");
+        case FcitxKey_Tab:
+            return std::string("\t");
+        case FcitxKey_space:
+            return std::string(" ");
+        default:
+            break;
+    }
+    uint32_t unicode =
+        fcitx::Key::keySymToUnicode(static_cast<fcitx::KeySym>(sym));
+    if (unicode >= 0x20)
+        return utf32_to_utf8(std::u32string(1, static_cast<char32_t>(unicode)));
+    return std::string(" ");
 }
 
 // ---------------------------------------------------------------------------
@@ -141,10 +202,18 @@ void PuntoModule::onKeyEvent(fcitx::KeyEvent& ev) {
 
     auto* ic  = ev.inputContext();
     auto  key = ev.key();
+    auto* p   = prop(ic);
+
+    // If we are injecting keys as part of our own operation, do not mutate
+    // tracker state (it would cause wrong/infinite re-switching).
+    if (p && p->tracker.isInternal()) {
+        return;
+    }
 
     // ---- Hotkey: swap last word ----
     if (key.checkKeyList(*config_.swapLastTextKey)) {
-        if (doSwapLastWord(ic)) ev.filterAndAccept();
+        bool did = doSwapLastWord(ic);
+        if (did) ev.filterAndAccept();
         return;
     }
 
@@ -161,22 +230,27 @@ void PuntoModule::onKeyEvent(fcitx::KeyEvent& ev) {
         return;
     }
 
+    // ---- Hotkey: undo last switch ----
+    if (key.checkKeyList(*config_.undoSwitchKey)) {
+        if (doUndoLastSwitch(ic)) ev.filterAndAccept();
+        return;
+    }
+
     // ---- Backspace / Delete: reset tracker ----
     if (key.sym() == FcitxKey_BackSpace || key.sym() == FcitxKey_Delete) {
-        if (auto* p = prop(ic)) p->tracker.reset();
+        if (p) p->tracker.reset();
         return;
     }
 
     // ---- Word boundary: auto-switch check ----
     if (isWordBoundaryKeySym(key.sym())) {
-        auto* p = prop(ic);
         if (p) {
             if (!p->tracker.wordBuffer.empty() && !p->tracker.isCurrentTokenFrozen())
                 checkAutoSwitch(p->tracker.wordBuffer, ic);
             // onBoundary() increments tokenId (unfreezes) and clears wordBuffer.
             // Without this call, freezeCurrentToken() would prevent ALL subsequent
             // words from being auto-switched.
-            p->tracker.onBoundary();
+            p->tracker.onBoundary(keysymToBoundaryUtf8(key.sym()));
         }
         // Let the boundary key propagate.
         return;
@@ -198,12 +272,11 @@ void PuntoModule::onKeyEvent(fcitx::KeyEvent& ev) {
     uint32_t unicode = fcitx::Key::keySymToUnicode(key.sym());
     if (unicode < 0x20) return; // control character, not printable
 
-    auto* p = prop(ic);
     if (!p) return;
 
     char32_t ch = static_cast<char32_t>(unicode);
     if (WordSwapper::isWordBoundary(ch)) {
-        p->tracker.onBoundary();
+        p->tracker.onBoundary(utf32_to_utf8(std::u32string(1, ch)));
     } else {
         p->tracker.addChar(utf32_to_utf8(std::u32string(1, ch)));
     }
@@ -246,22 +319,39 @@ bool PuntoModule::doSwapLastWord(fcitx::InputContext* ic) {
     //   Using forwardKey for BOTH deletion (BackSpace) and insertion (Unicode keysyms)
     //   keeps everything in the same key-event channel, guaranteeing ordering.
     if (p && !p->tracker.wordBuffer.empty()) {
-        std::string swapped = CharMapping::swapWord(p->tracker.wordBuffer);
-        if (swapped == p->tracker.wordBuffer) {
+        const std::string original = p->tracker.wordBuffer;
+        std::string swapped = CharMapping::swapWord(original);
+        if (swapped == original) {
             PUNTO_DEBUG() << "swap_last: nothing to swap (wordBuffer)";
             return false;
         }
-        int cpCount = static_cast<int>(utf8_to_utf32(p->tracker.wordBuffer).size());
+        int cpCount = static_cast<int>(utf8_to_utf32(original).size());
 
-        // Delete old word: BackSpace × cpCount
+        // Record undo state (for the "cancel last switch" hotkey).
+        CharMapping::Layout typedLayout = CharMapping::dominantLayout(utf8_to_utf32(original));
+        p->tracker.undoPrevLayout = typedLayout;
+        p->tracker.undoOriginalTextUtf8 = original;
+        p->tracker.undoSwappedTextUtf8 = swapped;
+        p->tracker.undoSwappedCpCount = utf8_to_utf32(swapped).size();
+
+        // Switch IM to match the swapped text.
+        if (auto prefix = prefixForOppositeLayout(typedLayout)) {
+            setIMByPrefix(instance_, ic, *prefix);
+        }
+
+        // Delete old word and insert swapped word with suppressed tracker updates.
+        InternalInjectionGuard guard(&p->tracker);
         for (int i = 0; i < cpCount; ++i) {
             ic->forwardKey(fcitx::Key(FcitxKey_BackSpace), true);
             ic->forwardKey(fcitx::Key(FcitxKey_BackSpace), false);
         }
-        // Insert swapped word: forwardKey with Unicode keysyms
+        // Insert swapped word.
+        // For manual swaps in browsers/Wayland widgets, Unicode forwardKey
+        // injection is more reliable than commitString.
         forwardString(ic, swapped);
 
-        p->tracker.reset();
+        // Clear wordBuffer but keep undo info.
+        p->tracker.reset(/*clearUndo=*/false);
         PUNTO_DEBUG() << "swap_last: done (wordBuffer+forwardKey path)";
         return true;
     }
@@ -304,14 +394,37 @@ bool PuntoModule::doSwapLastWord(fcitx::InputContext* ic) {
         ic->forwardKey(fcitx::Key(FcitxKey_Left), true);
         ic->forwardKey(fcitx::Key(FcitxKey_Left), false);
     }
-    for (int i = 0; i < cpCount; ++i) {
-        ic->forwardKey(fcitx::Key(FcitxKey_BackSpace), true);
-        ic->forwardKey(fcitx::Key(FcitxKey_BackSpace), false);
-    }
-    // Insert swapped word via forwardKey (same channel as BackSpaces above)
-    forwardString(ic, result->swapped);
+    const std::string swapped = result->swapped;
+    const std::string original = CharMapping::swapWord(swapped);
 
-    if (p) p->tracker.reset();
+    CharMapping::Layout typedLayout = CharMapping::dominantLayout(utf8_to_utf32(original));
+    if (p) {
+        p->tracker.undoPrevLayout = typedLayout;
+        p->tracker.undoOriginalTextUtf8 = original;
+        p->tracker.undoSwappedTextUtf8 = swapped;
+        p->tracker.undoSwappedCpCount = utf8_to_utf32(swapped).size();
+    }
+
+    if (auto prefix = prefixForOppositeLayout(typedLayout)) {
+        setIMByPrefix(instance_, ic, *prefix);
+    }
+
+    // Delete old word and insert swapped word with suppressed tracker updates.
+    if (p) {
+        InternalInjectionGuard guard(&p->tracker);
+        for (int i = 0; i < cpCount; ++i) {
+            ic->forwardKey(fcitx::Key(FcitxKey_BackSpace), true);
+            ic->forwardKey(fcitx::Key(FcitxKey_BackSpace), false);
+        }
+        forwardString(ic, swapped);
+        p->tracker.reset(/*clearUndo=*/false);
+    } else {
+        for (int i = 0; i < cpCount; ++i) {
+            ic->forwardKey(fcitx::Key(FcitxKey_BackSpace), true);
+            ic->forwardKey(fcitx::Key(FcitxKey_BackSpace), false);
+        }
+        forwardString(ic, swapped);
+    }
     PUNTO_DEBUG() << "swap_last: done (surroundingText+forwardKey path)";
     return true;
 }
@@ -397,26 +510,78 @@ void PuntoModule::checkAutoSwitch(const std::string& word, fcitx::InputContext* 
 
     PUNTO_DEBUG() << "auto_switch: '" << word << "' → '" << swapped << "'";
 
+    // Save undo state for the last switch operation.
+    p->tracker.undoPrevLayout = layout; // typed layout
+    p->tracker.undoOriginalTextUtf8 = word;
+    p->tracker.undoSwappedTextUtf8 = swapped;
+    p->tracker.undoSwappedCpCount = utf8_to_utf32(swapped).size();
+
+    InternalInjectionGuard guard(&p->tracker);
     for (int i = 0; i < wordCpCount; ++i) {
         ic->forwardKey(fcitx::Key(FcitxKey_BackSpace), true);
         ic->forwardKey(fcitx::Key(FcitxKey_BackSpace), false);
     }
+    // For Wayland text-input-v3, commitString is the most compatible way to
+    // replace the active token at once (avoids "deleted but not re-inserted"
+    // behaviour in some apps when using Unicode forwardKey injection).
     ic->commitString(swapped);
     p->tracker.freezeCurrentToken();
 
     // Switch the active input method to match the detected language.
     // Latin input that scored as Russian → switch to keyboard-ru, and vice versa.
-    std::string targetPrefix = (layout == CharMapping::Layout::English)
-                               ? "keyboard-ru"   // EN-typed → switch to RU
-                               : "keyboard-us";  // RU-typed → switch to EN/US
-    const auto& group = instance_->inputMethodManager().currentGroup();
-    for (const auto& item : group.inputMethodList()) {
-        if (item.name().rfind(targetPrefix, 0) == 0) {
-            instance_->setCurrentInputMethod(ic, item.name(), false);
-            PUNTO_DEBUG() << "auto_switch: switched IM to " << item.name();
-            break;
+    if (auto prefix = prefixForOppositeLayout(layout)) {
+        setIMByPrefix(instance_, ic, *prefix);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Action: undo last switch (layout + best-effort text revert)
+// ---------------------------------------------------------------------------
+bool PuntoModule::doUndoLastSwitch(fcitx::InputContext* ic) {
+    auto* p = prop(ic);
+    if (!p) return false;
+
+    bool didAnything = false;
+
+    // 1) Undo layout switch.
+    if (p->tracker.undoPrevLayout.has_value()) {
+        CharMapping::Layout layout = *p->tracker.undoPrevLayout;
+        if (auto prefix = prefixForLayout(layout)) {
+            setIMByPrefix(instance_, ic, *prefix);
+            didAnything = true;
         }
     }
+
+    // 2) Undo text swap (best-effort; uses surroundingText when available).
+    if (p->tracker.undoOriginalTextUtf8 && p->tracker.undoSwappedTextUtf8) {
+        const auto& st = ic->surroundingText();
+        if (st.isValid()) {
+            InternalInjectionGuard guard(&p->tracker);
+
+            std::u32string u32full = utf8_to_utf32(st.text());
+            unsigned cursor = st.cursor();
+            if (cursor > static_cast<unsigned>(u32full.size()))
+                cursor = static_cast<unsigned>(u32full.size());
+
+            // If the cursor is after a boundary char (space/punct), step left
+            // once so BackSpace deletes the swapped word only.
+            if (cursor > 0 && WordSwapper::isWordBoundary(u32full[cursor - 1])) {
+                ic->forwardKey(fcitx::Key(FcitxKey_Left), true);
+                ic->forwardKey(fcitx::Key(FcitxKey_Left), false);
+                if (cursor > 0) --cursor;
+            }
+            for (size_t i = 0; i < p->tracker.undoSwappedCpCount; ++i) {
+                ic->forwardKey(fcitx::Key(FcitxKey_BackSpace), true);
+                ic->forwardKey(fcitx::Key(FcitxKey_BackSpace), false);
+            }
+            forwardString(ic, *p->tracker.undoOriginalTextUtf8);
+            didAnything = true;
+        }
+    }
+
+    // After undo we lose synchronization; clear state.
+    p->tracker.reset(/*clearUndo=*/true);
+    return didAnything;
 }
 
 } // namespace punto

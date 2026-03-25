@@ -19,14 +19,18 @@ namespace punto {
 //   (#bigrams_of_W found in top-50 set) / max(1, total_bigrams_in_W)
 //
 // Rationale for thresholds:
-//  - confidenceThreshold = 0.15 balances recall vs. false-positive rate for
-//    typical 4-8 character words.  Configurable so users can tune.
+//  - confidenceThreshold: margin (swapped - original) bigram scores; tune via daemon.ini.
+//  - minPlausibleDominantBigramScore: if the word is almost all one script and already scores
+//    this well in that script's model, do not swap (blocks false positives on real words).
 //  - minWordLength = 3  prevents single-character or two-character false fires.
 
 struct HeuristicConfig {
     int    minWordLength       = 3;
     double confidenceThreshold = 0.15; // how much better swapped must score
-    bool   enabled             = true;
+    /// If the word is almost all one script and already scores >= this in that script's bigram
+    /// model, do not switch (reduces false positives on words like "привет" / "hello").
+    double minPlausibleDominantBigramScore = 0.18;
+    bool   enabled                       = true;
 };
 
 class AutoSwitchHeuristic {

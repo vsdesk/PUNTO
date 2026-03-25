@@ -13,6 +13,12 @@ target_link_libraries(punto-switcher-config
         Qt6::Widgets
 )
 
+if(BUILD_FCITX)
+    target_compile_definitions(punto-switcher-config PRIVATE PUNTO_WITH_FCITX=1)
+else()
+    target_compile_definitions(punto-switcher-config PRIVATE PUNTO_WITH_FCITX=0)
+endif()
+
 target_compile_features(punto-switcher-config PRIVATE cxx_std_17)
 
 # ---- Install ----

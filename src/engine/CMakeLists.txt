@@ -10,7 +10,6 @@ add_library(punto-switcher-engine MODULE
 )
 
 set_target_properties(punto-switcher-engine PROPERTIES
-    PREFIX ""           # no "lib" prefix required by Fcitx5
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib/fcitx5"
 )
 

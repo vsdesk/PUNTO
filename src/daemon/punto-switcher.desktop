@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Punto Switcher
+Comment=Automatic ru↔en keyboard layout correction
+# sg runs the daemon with group "input" even before the user logs out/in after postinst.
+Exec=/usr/bin/sg input -c /usr/bin/punto-switcher-daemon
+Terminal=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true

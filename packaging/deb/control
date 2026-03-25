@@ -6,13 +6,9 @@ Build-Depends:
  debhelper-compat (= 13),
  cmake (>= 3.20),
  pkg-config,
- libfcitx5core-dev,
- libfcitx5utils-dev,
- libfcitx5config-dev,
- fcitx5-modules,
  qt6-base-dev,
- libgtest-dev,
- extra-cmake-modules
+ libevdev-dev,
+ libxkbcommon-dev
 Standards-Version: 4.6.2
 Rules-Requires-Root: no
 Homepage: https://github.com/your-org/punto-switcher
@@ -22,21 +18,13 @@ Architecture: any
 Depends:
  ${shlibs:Depends},
  ${misc:Depends},
- fcitx5
-Recommends:
- fcitx5-frontend-gtk4 | fcitx5-frontend-gtk3,
- kde-config-fcitx5
-Description: Punto-style automatic ru<->en keyboard layout corrector for Wayland
- PuntoSwitcher is a Fcitx5 module that provides Punto Switcher-like
- functionality for Wayland: automatic detection and correction of text
- typed in the wrong keyboard layout (Russian/English), manual swap of
- the last typed word, and swap of selected text.
+ wtype,
+ wl-clipboard
+Description: Punto-style ru<->en layout corrector — install and use (no Fcitx5)
+ After install: log out and log in once (or reboot) so the "input" group
+ membership applies. Then punto-switcher-daemon starts automatically with
+ your desktop session.
  .
- Features:
-  - Auto-switch: detects wrong layout at word boundaries using bigram scoring
-  - Swap last word hotkey (default: Alt+')
-  - Swap selection hotkey (default: Alt+Shift+')
-  - Toggle auto-switch hotkey (default: Alt+Shift+A)
-  - Qt6 configuration GUI
+ No Fcitx5. Qt6 GUI: punto-switcher-config edits ~/.config/punto-switcher/daemon.ini.
  .
- Works with any Fcitx5-supported input toolkit on Wayland.
+ Layout switching on KDE Plasma uses qdbus6 when available.

@@ -1,0 +1,2 @@
+# uinput must be group "input" mode 0660 so the daemon can open /dev/uinput without root.
+SUBSYSTEM=="misc", KERNEL=="uinput", GROUP="input", MODE="0660", TAG+="uaccess"

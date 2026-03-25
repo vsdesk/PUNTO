@@ -3,6 +3,10 @@
 Автоматическое переключение раскладки **ru↔en** в стиле Punto Switcher для
 **Wayland** (KDE Plasma, GNOME, Sway и других DE) через **Fcitx5** IME.
 
+### Кому не подходит
+
+Если вам нужна **только встроенная клавиатура Plasma** (KDE) **без Fcitx5/IBus** — **этот репозиторий не решает задачу**: перехват и правка текста реализованы **только** как модуль Fcitx5. Параллельно держать «родной» переключатель раскладки KDE и отдельный IME обычно приводит к дублям индикаторов, рассинхрону в браузерах и проблемам с экранной клавиатурой KDE. В таком случае разумный путь — оставить чистый KDE (см. `scripts/restore-kde-keyboard-only.sh`) и не ставить этот пакет; Punto-подобное поведение на Wayland **без** участия IME здесь не предусмотрено.
+
 ---
 
 ## Архитектурные решения (зафиксированы)
@@ -23,7 +27,6 @@
 
 ```
 punto-switcher/
-├── CMakeLists.txt              # Корневой CMake (все submodules)
 ├── src/
 │   ├── core/                   # Переносимая логика (без Fcitx5/Qt зависимостей)
 │   │   ├── CharMapping.h/.cpp  # Таблица JCUKEN↔QWERTY + char-level swap
@@ -148,6 +151,7 @@ punto-switcher/
 | Swap Last Word | `Alt+apostrophe` | ✅ GUI / config |
 | Swap Selection | `Alt+shift+apostrophe` | ✅ GUI / config |
 | Toggle Auto-Switch | `Alt+shift+a` | ✅ GUI / config |
+| Undo Last Switch | `Alt+shift+BackSpace` | ✅ GUI / config |
 
 **Конфликты:** если Fcitx5 перехватывает хоткей, но целевое приложение
 не возвращает управление (e.g. хоткей системный), модуль логирует `WARN`
@@ -381,6 +385,7 @@ punto-switcher-config
 SwapLastText=Alt+apostrophe
 SwapSelection=Alt+shift+apostrophe
 ToggleAutoSwitch=Alt+shift+a
+UndoLastSwitch=Alt+shift+BackSpace
 AutoSwitch=true
 MinWordLength=3
 ConfidenceThreshold=0.15

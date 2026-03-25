@@ -23,6 +23,8 @@ namespace punto {
 struct InputTracker {
     std::string wordBuffer;      // current in-progress word (UTF-8)
     std::string lastWord;        // last completed word before boundary
+    /// UTF-8 of the boundary character that completed `lastWord` (for daemon delete path).
+    std::string lastBoundaryUtf8;
     int         lastWordByteSize = 0;
     uint64_t    tokenId          = 0;  // current token counter
     uint64_t    frozenTokenId    = UINT64_MAX; // token that was auto-switched
@@ -49,8 +51,9 @@ struct InputTracker {
     void addChar(const std::string& utf8char);
 
     // Call when a word-boundary character was just committed.
+    // `boundaryUtf8` is the boundary character (space, punctuation, newline, …).
     // Returns the completed word (non-empty if there was one), clears buffer.
-    std::optional<std::string> onBoundary();
+    std::optional<std::string> onBoundary(const std::string& boundaryUtf8 = {});
 
     // Forcibly finalize the word buffer (e.g. on focus-out).
     std::optional<std::string> flush();
@@ -62,7 +65,7 @@ struct InputTracker {
     bool isCurrentTokenFrozen() const { return frozenTokenId == tokenId; }
 
     // Reset all state (e.g. on focus change or delete key).
-    void reset();
+    void reset(bool clearUndo = true);
 };
 
 } // namespace punto

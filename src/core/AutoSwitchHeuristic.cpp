@@ -18,6 +18,8 @@ static const char32_t* RU_BIGRAMS_RAW[] = {
     U"ан", U"ло", U"ла", U"ос", U"лн", U"не", U"ка", U"им",
     U"ас", U"оп", U"ил", U"ки", U"ти", U"го", U"ог", U"да",
     U"ам", U"из", U"ть", U"ер",
+    // Common pairs missing from the truncated top-50 (improves e.g. "привет", "ив", "ет")
+    U"ет", U"ив", U"вы", U"ми", U"об", U"до", U"ем", U"ой", U"ая",
 };
 
 // Top-50 English bigrams (frequency corpus, lowercase)
@@ -138,6 +140,19 @@ bool AutoSwitchHeuristic::shouldSwitch(const std::string& word,
     // Score both versions against their respective language models
     double scoreOriginal = bigramScore(w32, effective);
     double scoreSwapped  = bigramScore(swapped, otherLayout);
+
+    const double ruRatio = CharMapping::russianLetterRatio(w32);
+    const double enRatio = CharMapping::englishLetterRatio(w32);
+
+    // Pure Cyrillic that already fits the Russian bigram model → do not swap (e.g. "привет",
+    // "Привет"). Pure Latin that fits English → do not swap ("hello"). Wrong-layout gibberish
+    // usually scores low in the dominant model and can still pass below.
+    if (effective == CharMapping::Layout::Russian && ruRatio >= 0.85 && enRatio <= 0.05) {
+        if (scoreOriginal >= cfg_.minPlausibleDominantBigramScore) return false;
+    }
+    if (effective == CharMapping::Layout::English && enRatio >= 0.85 && ruRatio <= 0.05) {
+        if (scoreOriginal >= cfg_.minPlausibleDominantBigramScore) return false;
+    }
 
     // Switch only if the swapped version scores significantly better
     return (scoreSwapped - scoreOriginal) > cfg_.confidenceThreshold;

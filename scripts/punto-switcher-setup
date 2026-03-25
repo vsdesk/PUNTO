@@ -11,9 +11,10 @@
 #   - Can be run multiple times (idempotent)
 #
 # Usage:
-#   punto-switcher-setup           # full setup
-#   punto-switcher-setup --status  # show current state, no changes
-#   punto-switcher-setup --undo    # restore KDE native keyboard (remove Fcitx5 as VK)
+#   punto-switcher-setup                  # full setup
+#   punto-switcher-setup --status       # show current state, no changes
+#   punto-switcher-setup --sync-kde-keyboard  # re-apply KDE kxkbrc/shortcuts from Fcitx5
+#   punto-switcher-setup --undo         # restore KDE native keyboard (remove Fcitx5 as VK)
 
 set -eo pipefail
 
@@ -24,10 +25,12 @@ FCITX5_CONFIG="${FCITX5_DIR}/config"
 KWINRC="${HOME}/.config/kwinrc"
 AUTOSTART_DIR="${HOME}/.config/autostart"
 AUTOSTART_ENTRY="${AUTOSTART_DIR}/punto-switcher-setup.desktop"
+# Re-applies kxkbrc + kglobalshortcutsrc from Fcitx5 after Plasma overwrites them on login.
+AUTOSTART_KDE_SYNC="${AUTOSTART_DIR}/punto-switcher-kde-sync.desktop"
 
-# ─── Colours ──────────────────────────────────────────────────────────────────
-RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
-CYAN='\033[0;36m'; BOLD='\033[1m'; RESET='\033[0m'
+# ─── Colours (ANSI bytes — must be $'…' or echo prints literal \033) ─────────
+RED=$'\033[0;31m'; GREEN=$'\033[0;32m'; YELLOW=$'\033[1;33m'
+CYAN=$'\033[0;36m'; BOLD=$'\033[1m'; RESET=$'\033[0m'
 info()    { echo -e "${CYAN}[INFO]${RESET}  $*"; }
 ok()      { echo -e "${GREEN}[OK]${RESET}    $*"; }
 warn()    { echo -e "${YELLOW}[WARN]${RESET}  $*"; }
@@ -48,6 +51,52 @@ find_fcitx5_plugin() {
         [ -f "$p" ] && { echo "$p"; return; }
     done
     echo ""
+}
+
+# Standard Fcitx 5 desktop entry (KDE “Virtual keyboard → Fcitx 5”, NOT the experimental launcher).
+# Using fcitx5-wayland-launcher.desktop leaves “Using Wayland native input method protocol: 0” in
+# fcitx5 logs and breaks layout switching in many Wayland apps (e.g. browsers).
+find_fcitx5_kwin_desktop() {
+    local f
+    for f in \
+        /usr/share/applications/org.fcitx.Fcitx5.desktop \
+        /usr/share/applications/fcitx5.desktop; do
+        [ -f "$f" ] && { echo "$f"; return; }
+    done
+    echo ""
+}
+
+# Current KWin Wayland InputMethod= value (path to .desktop or .so), or empty.
+read_kwin_inputmethod() {
+    [ -f "$KWINRC" ] || return 0
+    grep -iE '^InputMethod(\[.*\])?=' "$KWINRC" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '[:space:]'
+}
+
+is_kwin_wayland_launcher() {
+    case "$(read_kwin_inputmethod)" in
+        *fcitx5-wayland-launcher*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# True when KWin is set up so fcitx5’s Wayland IM frontend can attach (KDE docs + fcitx5 self-diagnose).
+kwin_wayland_im_ok() {
+    local im plugin
+    im="$(read_kwin_inputmethod)"
+    plugin="$(find_fcitx5_plugin)"
+    case "$im" in
+        *fcitx5-wayland-launcher*) return 1 ;;
+        "") return 1 ;;
+    esac
+    if [ -n "$plugin" ] && [ "$im" = "$plugin" ]; then
+        return 0
+    fi
+    case "$im" in
+        *org.fcitx.Fcitx5.desktop*|*fcitx5.desktop|*/fcitx5.so|*inputmethods/fcitx5.so*)
+            return 0 ;;
+        *)
+            return 1 ;;
+    esac
 }
 
 # ─── Read KDE keyboard layouts from kxkbrc ────────────────────────────────────
@@ -75,15 +124,248 @@ read_kde_layouts() {
         esac
     done
 
+    local merged
     if ! $has_latin; then
-        echo "us,${list}"
+        merged="us,${list}"
     else
-        echo "$list"
+        merged="$list"
+    fi
+    # Status/setup must always show Punto’s us+ru (KDE often lists only “us” in LayoutList).
+    ensure_ru_and_us_layouts "$merged"
+}
+
+# ─── Ensure Punto-relevant layouts ─────────────────────────────────────────
+# We always need both EN (us) and RU (ru) for Punto-style ru<->en correction.
+ensure_ru_and_us_layouts() {
+    local layouts_csv="$1"
+    layouts_csv="$(printf '%s' "$layouts_csv" | tr -d ' ')"
+
+    # Preserve original order from KDE/XKB.
+    # Only append missing layouts at the end.
+    local has_us=0
+    local has_ru=0
+    IFS=',' read -ra arr <<< "$layouts_csv"
+    for l in "${arr[@]}"; do
+        case "$l" in
+            us) has_us=1 ;;
+            ru) has_ru=1 ;;
+        esac
+    done
+
+    if [ "$has_us" -eq 0 ]; then
+        layouts_csv="${layouts_csv},us"
+    fi
+    if [ "$has_ru" -eq 0 ]; then
+        layouts_csv="${layouts_csv},ru"
+    fi
+
+    # Trim possible leading/trailing commas/spaces
+    layouts_csv="$(printf '%s' "$layouts_csv" | sed 's/^,//; s/,$//')"
+    echo "$layouts_csv"
+}
+
+# ─── XKB (kxkbrc) writer for XWayland fallback ─────────────────────────────
+# When KWin fcitx5 virtual keyboard plugin is missing, browsers often run as
+# XWayland clients. For them, global XKB state must include RU.
+
+# KDE requires VariantList to have exactly one comma-separated slot per entry in LayoutList
+# (empty slot = default XKB variant). If counts differ, System Settings shows only the first
+# layout — “only English” even when LayoutList=us,ru.
+build_variant_list_for_layouts() {
+    local layouts_csv="$1"
+    layouts_csv="$(printf '%s' "$layouts_csv" | tr -d ' ')"
+    IFS=',' read -ra arr <<< "$layouts_csv"
+    local n=${#arr[@]}
+    [ "$n" -le 1 ] && { echo ""; return; }
+    local i=0
+    local out=""
+    while [ "$i" -lt "$n" ]; do
+        [ "$i" -gt 0 ] && out="${out},"
+        i=$((i + 1))
+    done
+    echo "$out"
+}
+
+xkb_options_from_fcitx_switch_key() {
+    local key="$1"
+
+    case "$key" in
+        *Alt+Shift_L*|*Shift+Alt_L*)           echo "grp:alt_shift_toggle" ;;
+        *Ctrl+Shift_L*|*Control+Shift_L*|*Shift+Control_L*) echo "grp:ctrl_shift_toggle" ;;
+        *Alt+Control_L*|*Alt+Ctrl_L*|*Ctrl+Alt_L*|*Control+Alt_L*) echo "grp:ctrl_alt_toggle" ;;
+        *Control_L*|*Ctrl_L*)                 echo "grp:ctrl_toggle" ;;
+        *Alt_L*)                               echo "grp:toggle" ;;
+        *)
+            echo "grp:ctrl_shift_toggle"
+            ;;
+    esac
+}
+
+write_kxkbrc_for_xwayland() {
+    local layouts_csv="$1"
+    local switch_key="$2"
+
+    layouts_csv="$(printf '%s' "$layouts_csv" | tr -d ' ')"
+    local kxkbrc="${HOME}/.config/kxkbrc"
+    local xkb_options
+    xkb_options="$(xkb_options_from_fcitx_switch_key "$switch_key")"
+    # Always derive grp:* from the same switch key Fcitx5 uses — preserving old Options
+    # often left grp:ctrl_toggle while the user switched to Ctrl+Shift (only English + broken toggle).
+
+    local variant_list
+    variant_list="$(build_variant_list_for_layouts "$layouts_csv")"
+
+    mkdir -p "$(dirname "$kxkbrc")"
+
+    # Friendly DisplayNames (not strictly required for switching).
+    local display_names=""
+    IFS=',' read -ra arr <<< "$layouts_csv"
+    for l in "${arr[@]}"; do
+        case "$l" in
+            us|en|gb|uk)
+                display_names="${display_names}English,"
+                ;;
+            ru)
+                display_names="${display_names}Russian,"
+                ;;
+            *)
+                display_names="${display_names}${l},"
+                ;;
+        esac
+    done
+    display_names="${display_names%,}"
+
+    {
+        echo "[Layout]"
+        echo "DisplayNames=${display_names}"
+        echo "LayoutList=${layouts_csv}"
+        echo "Options=${xkb_options}"
+        echo "Use=true"
+        echo "VariantList=${variant_list}"
+    } > "$kxkbrc"
+
+    # Ensure KDE’s KConfig sees the same keys (some stacks only refresh after kwriteconfig6).
+    if command -v kwriteconfig6 &>/dev/null; then
+        kwriteconfig6 --file kxkbrc --group Layout --key LayoutList "$layouts_csv" 2>/dev/null || true
+        kwriteconfig6 --file kxkbrc --group Layout --key DisplayNames "$display_names" 2>/dev/null || true
+        kwriteconfig6 --file kxkbrc --group Layout --key VariantList "$variant_list" 2>/dev/null || true
+        kwriteconfig6 --file kxkbrc --group Layout --key Options "$xkb_options" 2>/dev/null || true
+        kwriteconfig6 --file kxkbrc --group Layout --key Use true 2>/dev/null || true
+    fi
+
+    if [ "${PUNTO_SWITCHER_SETUP_QUIET:-}" != "1" ]; then
+        ok "kxkbrc written (KDE layouts + XKB; VariantList matches LayoutList; options: ${xkb_options})"
     fi
 }
 
+# Map Fcitx5 hotkey strings → KDE “Switch layout” display form (kglobalshortcutsrc).
+fcitx5_key_to_kde_shortcut_string() {
+    local k="$1"
+    case "$k" in
+        *Ctrl+Shift_L*|*Control+Shift_L*|*Shift+Control_L*) echo "Ctrl+Shift" ;;
+        *Alt+Shift_L*|*Shift+Alt_L*) echo "Alt+Shift" ;;
+        *Alt+Control_L*|*Alt+Ctrl*|*Ctrl+Alt*|*Control+Alt*|*Alt+Control*) echo "Ctrl+Alt" ;;
+        Super+space|Super+Space) echo "Meta+Space" ;;
+        Ctrl+Space) echo "Ctrl+Space" ;;
+        *)
+            printf '%s' "$k" | sed -e 's/Control_L/Ctrl/g' -e 's/Shift_L/Shift/g' -e 's/Alt_L/Alt/g' -e 's/Super_L/Meta/g' -e 's/Control\+/Ctrl+/g'
+            ;;
+    esac
+}
+
+# System Settings → Keyboard reads kxkbrc *and* kglobalshortcutsrc. Without the latter,
+# “Переключение раскладки” shows «Не определена» even when Fcitx5 has a trigger key.
+sync_kde_system_layout_switch_shortcut() {
+    local fcitx_key="$1"
+    command -v kwriteconfig6 &>/dev/null || return 0
+    local kde_combo
+    kde_combo="$(fcitx5_key_to_kde_shortcut_string "$fcitx_key")"
+    [ -z "$kde_combo" ] && return 0
+
+    mkdir -p "${HOME}/.config"
+    # Format: primary,secondary,shortcut,Default (Plasma 5/6)
+    local val="none,none,${kde_combo},Default"
+
+    kwriteconfig6 --file kglobalshortcutsrc \
+        --group "KDE Keyboard Layout Switcher" \
+        --key "Switch to Next Keyboard Layout" \
+        "$val" 2>/dev/null || true
+
+    kwriteconfig6 --file kglobalshortcutsrc \
+        --group "keyboard" \
+        --key "Switch to Next Keyboard Layout" \
+        "$val" 2>/dev/null || true
+
+    if [ "${PUNTO_SWITCHER_SETUP_QUIET:-}" != "1" ]; then
+        ok "KDE System Settings → Keyboard: layout switch shortcut set to ${kde_combo} (kglobalshortcutsrc)"
+    fi
+}
+
+# Source of truth for post-login sync (KDE may reset kxkbrc / shortcuts to Meta+Alt+K or us-only).
+read_fcitx5_trigger_key_from_config() {
+    [ -f "$FCITX5_CONFIG" ] || { echo ""; return; }
+    awk '/^\[Hotkey\/TriggerKeys\]/{f=1;next} f&&/^0=/{sub(/^0=/,""); print; exit} f&&/^\[/{exit}' "$FCITX5_CONFIG"
+}
+
+read_fcitx5_layouts_csv_from_profile() {
+    [ -f "$FCITX5_PROFILE" ] || { echo ""; return; }
+    grep '^Name=keyboard-' "$FCITX5_PROFILE" 2>/dev/null | sed 's/^Name=keyboard-//' | paste -sd,
+}
+
+# After session start Plasma/Fcitx sometimes overwrite KDE keyboard files — restore from Fcitx5.
+cmd_sync_kde_keyboard() {
+    local fk fl
+    fk="$(read_fcitx5_trigger_key_from_config)"
+    fl="$(read_fcitx5_layouts_csv_from_profile)"
+    if [ -z "$fl" ]; then
+        fl="$(ensure_ru_and_us_layouts "$(read_kde_layouts)")"
+    else
+        fl="$(ensure_ru_and_us_layouts "$fl")"
+    fi
+    [ -z "$fk" ] && fk="Ctrl+Space"
+    if [ "${PUNTO_SWITCHER_SETUP_QUIET:-0}" = "1" ]; then
+        PUNTO_SWITCHER_SETUP_QUIET=1 write_kxkbrc_for_xwayland "$fl" "$fk"
+        PUNTO_SWITCHER_SETUP_QUIET=1 sync_kde_system_layout_switch_shortcut "$fk"
+    else
+        write_kxkbrc_for_xwayland "$fl" "$fk"
+        sync_kde_system_layout_switch_shortcut "$fk"
+    fi
+}
+
+install_kde_sync_autostart() {
+    mkdir -p "$AUTOSTART_DIR"
+    cat > "$AUTOSTART_KDE_SYNC" << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=Punto Switcher — KDE keyboard sync
+Comment=Restore us+ru and layout shortcut from Fcitx5 after Plasma login
+Exec=sh -c 'sleep 12; exec /usr/bin/env PUNTO_SWITCHER_SETUP_QUIET=1 /usr/bin/punto-switcher-setup --sync-kde-keyboard'
+X-GNOME-Autostart-Delay=0
+OnlyShowIn=KDE;
+EOF
+    ok "Installed login hook: ${AUTOSTART_KDE_SYNC} (fixes layout/shortcut reset after session start)"
+}
+
+remove_kde_sync_autostart() {
+    if [ -f "$AUTOSTART_KDE_SYNC" ]; then
+        rm -f "$AUTOSTART_KDE_SYNC"
+        ok "Removed KDE sync autostart: ${AUTOSTART_KDE_SYNC}"
+    fi
+}
+
+# Fcitx5 TriggerKeys must be a real combo (e.g. Ctrl+Space). A lone modifier breaks IM.
+is_invalid_fcitx_switch_key() {
+    local k="$1"
+    [ -z "$k" ] && return 0
+    case "$k" in
+        Control_L|Control_R|Alt_L|Alt_R|Shift_L|Shift_R|Super_L|Super_R|Meta_L|Meta_R|Caps_Lock|Control|Ctrl|Alt|Shift|Super|Win|Meta)
+            return 0 ;;
+    esac
+    return 1
+}
+
 # ─── Read KDE layout-switching shortcut ───────────────────────────────────────
-# Returns a Fcitx5-compatible key string (e.g. "Control_L", "Alt+Shift_L")
+# Returns a Fcitx5-compatible key string (e.g. "Ctrl+Shift_L", "Alt+Shift_L")
 read_kde_switch_shortcut() {
     local raw=""
 
@@ -109,47 +391,66 @@ read_kde_switch_shortcut() {
               | head -1 | cut -d= -f2-)
     fi
 
-    # Value format: "shortcut1,shortcut2,Description"
-    # Take the first non-empty, non-"none" shortcut
+    # Value format: "primary,secondary,Alt+Shift,Default" (KDE) — never take a lone
+    # "Shift" when "Alt+Shift" exists later, or Fcitx5 gets a useless trigger and only
+    # some apps (e.g. one Electron build) appear to switch layouts.
     local shortcut=""
+    local candidate=""
     IFS=',' read -ra parts <<< "$raw"
     for part in "${parts[@]}"; do
         part="${part// /}"   # strip spaces
         [ -z "$part" ] && continue
         [ "$part" = "none" ] && continue
+        [ "$part" = "Default" ] && continue
         [[ "$part" == *"Description"* ]] && continue
-        # Reject if it looks like a localised description (contains Cyrillic or spaces)
         [[ "$part" =~ [а-яА-Я] ]] && continue
         [[ "$part" =~ \  ]] && continue
-        shortcut="$part"
-        break
+        # Prefer real combos (contains '+') over lone Shift/Alt/Control.
+        if [[ "$part" == *+* ]]; then
+            shortcut="$part"
+            break
+        fi
+        [ -z "$candidate" ] && candidate="$part"
     done
+    [ -z "$shortcut" ] && shortcut="$candidate"
+
+    # If KDE string clearly contains Alt+Shift / Ctrl+Shift but we picked wrong token:
+    if { is_invalid_fcitx_switch_key "$shortcut" || [ "$shortcut" = "Shift" ] || [ "$shortcut" = "Alt" ]; } \
+        && [ -n "$raw" ]; then
+        if echo "$raw" | grep -qE 'Alt\+Shift|Shift\+Alt'; then
+            shortcut="Alt+Shift"
+        elif echo "$raw" | grep -qE 'Ctrl\+Shift|Shift\+Ctrl|Control\+Shift|Shift\+Control'; then
+            shortcut="Ctrl+Shift"
+        fi
+    fi
 
     [ -z "$shortcut" ] && { echo ""; return; }
 
+    # Normalize common KDE spellings → Fcitx5 (case-insensitive)
+    local sl="${shortcut,,}"
+    case "$sl" in
+        alt+shift|shift+alt) shortcut="Alt+Shift" ;;
+        ctrl+shift|shift+ctrl|control+shift|shift+control) shortcut="Ctrl+Shift" ;;
+        alt+ctrl|ctrl+alt|control+alt|alt+control) shortcut="Alt+Ctrl" ;;
+    esac
+
     # Convert KDE/xkb modifier names → Fcitx5 key names
+    local out=""
     case "$shortcut" in
-        "Control"|"Ctrl")            echo "Control_L" ;;
-        "Alt")                       echo "Alt_L" ;;
-        "Shift")                     echo "Shift_L" ;;
-        "Super"|"Win"|"Meta")        echo "Super_L" ;;
-        "Caps_Lock"|"CapsLock")      echo "Caps_Lock" ;;
-        "Alt+Shift"|"Shift+Alt")     echo "Alt+Shift_L" ;;
-        "Ctrl+Shift"|"Shift+Ctrl")   echo "Ctrl+Shift_L" ;;
-        "Alt+Ctrl"|"Ctrl+Alt")       echo "Alt+Control_L" ;;
-        "Win+Space"|"Meta+Space"|"Super+Space") echo "Super+space" ;;
+        # Never map to a lone *_L — Fcitx5 cannot use that as Enumerate trigger.
+        "Control"|"Ctrl"|"Alt"|"Shift"|"Super"|"Win"|"Meta"|"Caps_Lock"|"CapsLock") out="" ;;
+        "Alt+Shift"|"Shift+Alt")     out="Alt+Shift_L" ;;
+        "Ctrl+Shift"|"Shift+Ctrl")   out="Ctrl+Shift_L" ;;
+        "Alt+Ctrl"|"Ctrl+Alt"|"Alt+Control"|"Control+Alt") out="Alt+Control_L" ;;
+        "Win+Space"|"Meta+Space"|"Super+Space") out="Super+space" ;;
         *)
-            # Pass through as-is (may already be in Fcitx5 format)
-            echo "$shortcut"
+            out="$shortcut"
             ;;
     esac
-}
-
-# ─── Check whether Fcitx5 is already the KWin virtual keyboard ────────────────
-is_fcitx5_virtual_keyboard() {
-    [ -f "$KWINRC" ] || return 1
-    # KDE uses "InputMethod[$e]=" (with environment expansion marker) in Plasma 6
-    grep -iE "^InputMethod(\[.*\])?=" "$KWINRC" 2>/dev/null | grep -qi "fcitx5"
+    if is_invalid_fcitx_switch_key "$out"; then
+        out=""
+    fi
+    echo "$out"
 }
 
 # ─── Check whether the Fcitx5 profile already has a given layout ──────────────
@@ -174,7 +475,21 @@ write_fcitx5_profile() {
     fi
 
     # Re-generate from scratch (simpler and safer than incremental patching)
+    # Preserve user's previous default layout when possible.
     local first_layout="${layouts[0]}"
+    if [ -f "$FCITX5_PROFILE" ]; then
+        local old_default
+        old_default="$(grep '^Default Layout=' "$FCITX5_PROFILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d ' ')"
+        if [ -n "$old_default" ]; then
+            local keep=0
+            for l in "${layouts[@]}"; do
+                if [ "$l" = "$old_default" ]; then keep=1; break; fi
+            done
+            if [ "$keep" -eq 1 ]; then
+                first_layout="$old_default"
+            fi
+        fi
+    fi
     {
         echo "[Groups/0]"
         echo "# Group Name"
@@ -205,12 +520,43 @@ write_fcitx5_profile() {
 write_fcitx5_config() {
     local switch_key="$1"
 
-    # Backup existing config
+    # Hard conflict guard:
+    # KDE/Fcitx5 layout switching must not steal Punto swap keys:
+    #   Alt+' / Alt+Shift+'
+    # If conflict detected, force a safe layout-switch binding.
+    local switch_key_l
+    switch_key_l="$(printf '%s' "$switch_key" | tr 'A-Z' 'a-z')"
+    case "$switch_key_l" in
+        *alt+apostrophe*|*alt+quotedbl*|*alt+grave*|*alt+shift+apostrophe*|*alt+shift+quotedbl*|*alt+shift+grave*)
+            switch_key="Ctrl+Space"
+            ;;
+    esac
+
+    mkdir -p "$(dirname "$FCITX5_CONFIG")"
+
+    # Important: do NOT overwrite the entire fcitx5 config — it may contain
+    # additional settings required for syncing layouts for XWayland/browser
+    # clients. We rewrite only the Hotkey-related sections.
+    local tmp="${FCITX5_CONFIG}.tmp.$RANDOM"
+
     if [ -f "$FCITX5_CONFIG" ]; then
-        cp "$FCITX5_CONFIG" "${FCITX5_CONFIG}.bak.$(date +%Y%m%d%H%M%S)"
+        awk '
+            BEGIN{skip=0}
+            {
+                if ($0 ~ /^\[Hotkey\]$/) {skip=1; next}
+                if ($0 ~ /^\[Hotkey\/(TriggerKeys|EnumerateForwardKeys|EnumerateBackwardKeys|ActivateKeys|DeactivateKeys)\]/) {skip=1; next}
+                if ($0 ~ /^\[/ && skip==1) {skip=0}
+                if (skip==1) next
+                print
+            }
+        ' "$FCITX5_CONFIG" > "$tmp"
+    else
+        : > "$tmp"
     fi
 
     {
+        cat "$tmp"
+        echo ""
         echo "[Hotkey]"
         echo "# Enumerate Input Method in group"
         echo "EnumerateWithTriggerKeys=True"
@@ -239,7 +585,9 @@ write_fcitx5_config() {
         echo "[Hotkey/DeactivateKeys]"
         echo "0=Hangul_Romaja"
     } > "$FCITX5_CONFIG"
-    ok "Fcitx5 config written (switch key: ${switch_key:-Ctrl+Space})"
+
+    rm -f "$tmp" 2>/dev/null || true
+    ok "Fcitx5 config hotkeys updated (switch key: ${switch_key:-Ctrl+Space})"
 }
 
 # ─── Set Fcitx5 as KWin virtual keyboard (plugin-based, Plasma 5 / early P6) ──
@@ -269,6 +617,8 @@ unset_kwin_virtual_keyboard() {
 # ─── Set up Fcitx5 via environment variables (universal Wayland fallback) ─────
 # Works for Qt5, Qt6, GTK3, GTK4 apps without requiring a KWin plugin.
 # Plasma reads files from ~/.config/plasma-workspace/env/ on session start.
+# systemd user session reads ~/.config/environment.d/*.conf — often required so
+# GTK_IM_MODULE reaches browsers started from systemd/D-Bus (not only Plasma).
 setup_env_vars() {
     local envdir="${HOME}/.config/plasma-workspace/env"
     local envfile="${envdir}/fcitx5-im.sh"
@@ -279,14 +629,56 @@ export INPUT_METHOD=fcitx5
 export GTK_IM_MODULE=fcitx
 export QT_IM_MODULE=fcitx
 export XMODIFIERS="@im=fcitx"
+export MOZ_ENABLE_WAYLAND=1
 EOF
     chmod +x "$envfile"
     ok "Written Plasma env: ${envfile}"
 
-    # Also write a systemd user environment override so it works in new login
+    # systemd --user: picked up on next login (and by many GUI services)
+    local envd="${HOME}/.config/environment.d"
+    mkdir -p "$envd"
+    cat > "${envd}/fcitx5-im.conf" << 'EOF'
+# Fcitx5 — written by punto-switcher-setup (systemd user environment.d)
+INPUT_METHOD=fcitx5
+GTK_IM_MODULE=fcitx
+QT_IM_MODULE=fcitx
+XMODIFIERS=@im=fcitx
+MOZ_ENABLE_WAYLAND=1
+EOF
+    ok "Written systemd user env: ${envd}/fcitx5-im.conf"
+
     if command -v systemctl &>/dev/null && systemctl --user status >/dev/null 2>&1; then
-        systemctl --user import-environment INPUT_METHOD GTK_IM_MODULE QT_IM_MODULE XMODIFIERS 2>/dev/null || true
+        systemctl --user daemon-reload 2>/dev/null || true
+        systemctl --user import-environment INPUT_METHOD GTK_IM_MODULE QT_IM_MODULE XMODIFIERS MOZ_ENABLE_WAYLAND 2>/dev/null || true
     fi
+}
+
+# Flatpak browsers run in a sandbox and ignore host ~/.profile / Plasma env unless overridden.
+setup_flatpak_im_overrides() {
+    command -v flatpak &>/dev/null || return 0
+    local ref
+    local applied=0
+    for ref in \
+        org.mozilla.firefox \
+        org.mozilla.firefox_beta \
+        com.google.Chrome \
+        org.chromium.Chromium \
+        com.brave.Browser \
+        com.microsoft.Edge \
+        com.vivaldi.Vivaldi; do
+        flatpak info "$ref" &>/dev/null || continue
+        if flatpak override --user \
+            --env=INPUT_METHOD=fcitx5 \
+            --env=GTK_IM_MODULE=fcitx \
+            --env=QT_IM_MODULE=fcitx \
+            --env=XMODIFIERS=@im=fcitx \
+            --env=MOZ_ENABLE_WAYLAND=1 \
+            "$ref" 2>/dev/null; then
+            ok "Flatpak IM env: ${ref}"
+            applied=1
+        fi
+    done
+    [ "$applied" -eq 0 ] && info "No Flatpak browsers detected (or override skipped)."
 }
 
 remove_env_vars() {
@@ -295,12 +687,55 @@ remove_env_vars() {
         rm -f "$envfile"
         ok "Removed Plasma env file: ${envfile}"
     fi
+    local envd="${HOME}/.config/environment.d/fcitx5-im.conf"
+    if [ -f "$envd" ]; then
+        rm -f "$envd"
+        ok "Removed systemd env.d: ${envd}"
+    fi
 }
 
 # ─── Check whether env vars are configured ────────────────────────────────────
 has_env_vars() {
     local envfile="${HOME}/.config/plasma-workspace/env/fcitx5-im.sh"
     [ -f "$envfile" ] && grep -q "fcitx" "$envfile"
+}
+
+has_systemd_env_d() {
+    local f="${HOME}/.config/environment.d/fcitx5-im.conf"
+    [ -f "$f" ] && grep -q "fcitx" "$f"
+}
+
+# GTK_IM_MODULE seen by a running process (Linux)
+read_proc_env_gtk_im() {
+    local pid="$1"
+    [ -r "/proc/${pid}/environ" ] || return 1
+    tr '\0' '\n' < "/proc/${pid}/environ" | grep '^GTK_IM_MODULE=' | head -1 | cut -d= -f2-
+}
+
+# Report whether common browser processes have GTK_IM_MODULE=fcitx
+status_browser_im() {
+    local name pid gtk shown=0
+    # Binary names (first match per name)
+    for name in firefox firefox-esr thunderbird chromium chromium-browser \
+                google-chrome chrome brave brave-browser vivaldi-stable vivaldi opera; do
+        pid=$(pgrep -nx "$name" 2>/dev/null) || continue
+        gtk="$(read_proc_env_gtk_im "$pid")"
+        shown=1
+        if [ "$gtk" = "fcitx" ]; then
+            echo -e "  Browser ${name}[$pid] GTK_IM: ${GREEN}fcitx ✓${RESET}"
+        elif [ -z "$gtk" ]; then
+            echo -e "  Browser ${name}[$pid] GTK_IM: ${YELLOW}unset${RESET} — ${CYAN}quit browser, log out/in, reopen${RESET}"
+        else
+            echo -e "  Browser ${name}[$pid] GTK_IM: ${RED}${gtk}${RESET} — ${CYAN}relogin or Flatpak override${RESET}"
+        fi
+    done
+    [ "$shown" -eq 0 ] && echo -e "  Browser processes:     ${CYAN}none running${RESET} (start Firefox/Chromium and re-run --status)"
+}
+
+status_snap_hint() {
+    command -v snap &>/dev/null || return 0
+    snap list firefox chromium 2>/dev/null | grep -q . || return 0
+    echo -e "  ${YELLOW}Snap browser detected:${RESET} host GTK_IM may not apply. Prefer distro/Flatpak build or see snap forum for IM."
 }
 
 # ─── Remove the first-run autostart entry ─────────────────────────────────────
@@ -348,24 +783,43 @@ cmd_status() {
         echo -e "  Fcitx5 profile:        ${RED}missing${RESET}"
     fi
 
-    # 3. Env vars (universal fallback)
+    # 3. Env vars (Plasma session + systemd user — browsers need both paths)
     if has_env_vars; then
-        echo -e "  IM env vars:           ${GREEN}configured ✓${RESET} (~/.config/plasma-workspace/env/)"
+        echo -e "  IM env (Plasma):       ${GREEN}configured ✓${RESET} (~/.config/plasma-workspace/env/)"
     else
-        echo -e "  IM env vars:           ${YELLOW}not set${RESET}"
+        echo -e "  IM env (Plasma):       ${YELLOW}not set${RESET}"
+    fi
+    if has_systemd_env_d; then
+        echo -e "  IM env (systemd user): ${GREEN}configured ✓${RESET} (~/.config/environment.d/)"
+    else
+        echo -e "  IM env (systemd user): ${YELLOW}missing${RESET} — run ${CYAN}punto-switcher-setup${RESET}"
     fi
 
-    # 4. KWin virtual keyboard (plugin-based, optional)
-    local plugin
+    if [ -f "$AUTOSTART_KDE_SYNC" ]; then
+        echo -e "  KDE post-login sync: ${GREEN}enabled ✓${RESET} (~/.config/autostart/punto-switcher-kde-sync.desktop)"
+    else
+        echo -e "  KDE post-login sync: ${YELLOW}off${RESET} — run ${CYAN}punto-switcher-setup${RESET} to restore us+ru after login"
+    fi
+
+    # 4. KWin virtual keyboard (fcitx5.so plugin OR org.fcitx.Fcitx5.desktop — NOT Wayland Launcher)
+    local plugin im
     plugin=$(find_fcitx5_plugin)
+    im="$(read_kwin_inputmethod)"
     if [ -n "$plugin" ]; then
-        if is_fcitx5_virtual_keyboard; then
-            echo -e "  KWin virtual keyboard: ${GREEN}Fcitx5 ✓${RESET} (plugin mode)"
+        if [ "$im" = "$plugin" ] || [[ "$im" == *fcitx5.so ]]; then
+            echo -e "  KWin virtual keyboard: ${GREEN}fcitx5.so ✓${RESET} (plugin)"
         else
-            echo -e "  KWin virtual keyboard: ${YELLOW}plugin found but not active${RESET}"
+            echo -e "  KWin virtual keyboard: ${YELLOW}fcitx5.so present but not selected in kwinrc${RESET}"
         fi
     else
-        echo -e "  KWin virtual keyboard: ${YELLOW}plugin not installed${RESET} (env vars mode used instead)"
+        if is_kwin_wayland_launcher; then
+            echo -e "  KWin virtual keyboard: ${RED}Fcitx 5 Wayland Launcher${RESET} — ${YELLOW}breaks layout in browsers${RESET}"
+            echo -e "                           ${CYAN}Run punto-switcher-setup${RESET} to use ${GREEN}Fcitx 5${RESET} (see journal: Wayland native IM protocol must be 1)"
+        elif kwin_wayland_im_ok; then
+            echo -e "  KWin virtual keyboard: ${GREEN}Fcitx 5 ✓${RESET} (desktop entry — Wayland IM)"
+        else
+            echo -e "  KWin virtual keyboard: ${YELLOW}not set to Fcitx 5${RESET} — run ${CYAN}punto-switcher-setup${RESET}"
+        fi
     fi
 
     # 5. Fcitx5 running?
@@ -375,12 +829,21 @@ cmd_status() {
         echo -e "  Fcitx5 running:        ${RED}no${RESET}"
     fi
 
+    # 6. Running browsers: do they actually see GTK_IM_MODULE=fcitx?
+    echo ""
+    status_browser_im
+    status_snap_hint
+
     # Summary
     echo ""
-    if [ -f "$FCITX5_PROFILE" ] && has_env_vars && pgrep -x fcitx5 >/dev/null 2>&1; then
-        echo -e "  ${GREEN}${BOLD}✓ Active (env-vars mode) — Qt/GTK apps fully supported${RESET}"
-    elif [ -f "$FCITX5_PROFILE" ] && is_fcitx5_virtual_keyboard && pgrep -x fcitx5 >/dev/null 2>&1; then
-        echo -e "  ${GREEN}${BOLD}✓ Active (KWin plugin mode) — all apps supported${RESET}"
+    if [ -f "$FCITX5_PROFILE" ] && has_env_vars && has_systemd_env_d && pgrep -x fcitx5 >/dev/null 2>&1; then
+        if kwin_wayland_im_ok; then
+            echo -e "  ${GREEN}${BOLD}✓ Config looks complete — if browser still wrong: quit browser, log out/in, check lines above${RESET}"
+        else
+            echo -e "  ${YELLOW}${BOLD}⚠ IM env OK, but KWin is not using Fcitx 5 VK — run: punto-switcher-setup${RESET}"
+        fi
+    elif [ -f "$FCITX5_PROFILE" ] && kwin_wayland_im_ok && pgrep -x fcitx5 >/dev/null 2>&1; then
+        echo -e "  ${GREEN}${BOLD}✓ KWin VK OK — run punto-switcher-setup to refresh Plasma + systemd IM env${RESET}"
     else
         echo -e "  ${YELLOW}Setup incomplete — run: punto-switcher-setup${RESET}"
     fi
@@ -394,6 +857,7 @@ cmd_undo() {
     unset_kwin_virtual_keyboard
     remove_env_vars
     remove_autostart
+    remove_kde_sync_autostart
     echo ""
     echo -e "${YELLOW}Undo complete. Log out and back in to restore your original keyboard.${RESET}"
     echo "Punto Switcher will stop working until you run setup again."
@@ -411,17 +875,45 @@ cmd_setup() {
     # ---- 1. Detect KDE layouts ----
     local kde_layouts
     kde_layouts=$(read_kde_layouts)
+    kde_layouts="$(ensure_ru_and_us_layouts "$kde_layouts")"
+
+    # Preserve user's previous default layout ordering for initial group.
+    if [ -f "$FCITX5_PROFILE" ]; then
+        local old_default
+        old_default="$(grep '^Default Layout=' "$FCITX5_PROFILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d ' ')"
+        if [ -n "$old_default" ]; then
+            # Reorder layouts so that old_default becomes the first element.
+            local reordered=""
+            local found=0
+            IFS=',' read -ra tmp <<< "$kde_layouts"
+            for l in "${tmp[@]}"; do
+                if [ "$l" = "$old_default" ]; then
+                    reordered="$reordered$l"
+                    found=1
+                    break
+                fi
+            done
+            for l in "${tmp[@]}"; do
+                if [ "$l" = "$old_default" ]; then continue; fi
+                if [ -z "$reordered" ]; then
+                    reordered="$l"
+                else
+                    reordered="${reordered},$l"
+                fi
+            done
+            if [ "$found" -eq 1 ]; then
+                kde_layouts="$reordered"
+            fi
+        fi
+    fi
     info "Detected KDE layouts: ${kde_layouts}"
 
     # ---- 2. Find KWin plugin ----
     local plugin
     plugin=$(find_fcitx5_plugin)
     if [ -z "$plugin" ]; then
-        warn "Fcitx5 KWin plugin not found."
-        warn "Install it with:  sudo apt install kde-config-fcitx5"
-        warn "Then re-run:      punto-switcher-setup"
+        info "KWin fcitx5.so plugin not installed (many distros omit it). Using org.fcitx.Fcitx5.desktop for KWin instead."
         echo ""
-        # Still set up Fcitx5 profile even without the plugin
     fi
 
     # ---- 3. Create Fcitx5 directory ----
@@ -434,32 +926,55 @@ cmd_setup() {
     local kde_shortcut fcitx5_key
     kde_shortcut=$(read_kde_switch_shortcut)
     fcitx5_key="$kde_shortcut"
-    if [ -n "$fcitx5_key" ]; then
-        info "Using your KDE switching shortcut: ${kde_shortcut} → ${fcitx5_key}"
-    else
+    if [ -z "$fcitx5_key" ] || is_invalid_fcitx_switch_key "$fcitx5_key"; then
         fcitx5_key="Ctrl+Space"
-        info "No KDE switching shortcut detected; using default: ${fcitx5_key}"
+        info "KDE layout shortcut missing or invalid for Fcitx5 (was: ${kde_shortcut:-empty}); using Ctrl+Space"
+    else
+        info "Using your KDE switching shortcut: ${kde_shortcut} → ${fcitx5_key}"
     fi
+
+    # Avoid hotkey conflicts with Punto swap keys:
+    #   Alt+'            = swap last word (Punto)
+    #   Alt+Shift+'     = swap selection / delete+replace (Punto)
+    # If KDE/Fcitx5 layout switching uses Alt+' it steals the key combo and
+    # Punto won't receive it reliably.
+    fcitx5_key_l="$(printf '%s' "$fcitx5_key" | tr 'A-Z' 'a-z')"
+    case "$fcitx5_key_l" in
+        *alt+apostrophe*|*alt+quotedbl*|*alt+grave*|*alt+shift+apostrophe*|*alt+shift+quotedbl*|*alt+shift+grave*)
+            info "Detected layout-switch hotkey conflicts with Punto. Using Ctrl+Space instead: ${fcitx5_key} → Ctrl+Space"
+            fcitx5_key="Ctrl+Space"
+            ;;
+    esac
     write_fcitx5_config "$fcitx5_key"
 
     # ---- 6. Set up input method integration ----
+    local fcitx_desktop
+    fcitx_desktop="$(find_fcitx5_kwin_desktop)"
     if [ -n "$plugin" ]; then
-        # Full KWin virtual keyboard mode (requires kwin inputmethods plugin)
         set_kwin_virtual_keyboard "$plugin"
     else
-        # Universal fallback: environment variables
-        # Works for Qt5, Qt6, GTK3, GTK4 apps on any Wayland compositor.
-        # Note: Ubuntu 25.10 does not package the KWin fcitx5 input-method plugin;
-        # env-vars mode covers all standard desktop apps equally well.
-        info "KWin input-method plugin not found — using env-vars mode"
-        setup_env_vars
+        # Without fcitx5.so, KWin must use org.fcitx.Fcitx5.desktop — NOT fcitx5-wayland-launcher.desktop —
+        # or fcitx5 stays at “Using Wayland native input method protocol: 0” and browsers mis-handle layouts.
+        if [ -n "$fcitx_desktop" ]; then
+            set_kwin_virtual_keyboard "$fcitx_desktop"
+        else
+            warn "Could not find org.fcitx.Fcitx5.desktop — is the fcitx5 package installed?"
+        fi
     fi
+    # Always: GTK/Qt IM env (Plasma + systemd env.d) — required for browsers even when KWin plugin exists.
+    setup_env_vars
+    setup_flatpak_im_overrides
+    write_kxkbrc_for_xwayland "$kde_layouts" "$fcitx5_key"
+    # Same shortcut in KDE’s own config so System Settings → Keyboard shows layouts + combo (not only Fcitx5).
+    sync_kde_system_layout_switch_shortcut "$fcitx5_key"
+    info "Reopen System Settings → Keyboard to verify us+ru and the shortcut; log out/in if the layout list is still stale."
 
     # ---- 7. Start/restart Fcitx5 ----
     restart_fcitx5
 
-    # ---- 8. Remove autostart entry (setup done) ----
+    # ---- 8. Remove first-run autostart; install KDE post-login sync (Plasma resets kxkbrc) ----
     remove_autostart
+    install_kde_sync_autostart
 
     echo ""
     echo -e "${GREEN}${BOLD}Setup complete!${RESET}"
@@ -470,12 +985,14 @@ cmd_setup() {
     echo "  Punto swap selection:     Alt+Shift+'"
     echo ""
 
-    if ! has_env_vars && ! is_fcitx5_virtual_keyboard; then
-        echo -e "${YELLOW}WARNING:${RESET} Neither env-vars nor KWin plugin configured."
-        echo "  Run setup again or set manually: System Settings → Virtual Keyboard → Fcitx 5"
+    if ! has_env_vars && ! kwin_wayland_im_ok; then
+        echo -e "${YELLOW}WARNING:${RESET} Neither IM env vars nor KWin Fcitx 5 virtual keyboard is configured."
+        echo "  Re-run this script or set: System Settings → Virtual Keyboard → ${BOLD}Fcitx 5${RESET} (not Wayland Launcher)."
         echo ""
     else
-        echo -e "${YELLOW}ACTION REQUIRED:${RESET} Log out and back in (or reboot) for changes to take effect."
+        echo -e "${YELLOW}ACTION REQUIRED:${RESET}"
+        echo "  • Log out and back in (or reboot) so Plasma + systemd pick up IM environment."
+        echo "  • Fully quit the browser, then reopen — or run ${CYAN}punto-switcher-setup --status${RESET} and check GTK_IM for your browser."
         echo ""
     fi
 }
@@ -484,12 +1001,14 @@ cmd_setup() {
 case "${1:-}" in
     --status|-s) cmd_status ;;
     --undo|-u)   cmd_undo ;;
+    --sync-kde-keyboard) cmd_sync_kde_keyboard ;;
     --help|-h)
-        echo "Usage: $0 [--status | --undo | --help]"
+        echo "Usage: $0 [--status | --undo | --sync-kde-keyboard | --help]"
         echo ""
-        echo "  (no args)  Run full setup: migrate layouts, configure virtual keyboard"
-        echo "  --status   Show current setup state without making changes"
-        echo "  --undo     Remove Fcitx5 as virtual keyboard, restore KDE native"
+        echo "  (no args)             Run full setup: migrate layouts, configure virtual keyboard"
+        echo "  --status              Show current setup state without making changes"
+        echo "  --undo                Remove Fcitx5 as virtual keyboard, restore KDE native"
+        echo "  --sync-kde-keyboard   Re-apply KDE kxkbrc + shortcuts from Fcitx5 (after login)"
         exit 0
         ;;
     "")          cmd_setup ;;

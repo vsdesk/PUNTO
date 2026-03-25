@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 
 project(PuntoSwitcher
     VERSION 1.0.0
-    DESCRIPTION "Punto-style ru<->en keyboard layout switcher for Wayland/Fcitx5"
+    DESCRIPTION "Punto-style ru<->en keyboard layout switcher (evdev daemon; optional Fcitx5)"
     HOMEPAGE_URL "https://github.com/your-org/punto-switcher"
     LANGUAGES CXX
 )
@@ -40,15 +40,32 @@ find_package(ECM QUIET)  # KDE Extra CMake Modules (optional, for FindFcitx5)
 # ---------------------------------------------------------------------------
 # Submodules
 # ---------------------------------------------------------------------------
+option(BUILD_FCITX "Build Fcitx5 input method module (optional)" OFF)
+option(BUILD_DAEMON "Build standalone evdev/uinput daemon" ON)
+option(BUILD_GUI "Build Qt settings (punto-switcher-config)" ON)
+
 add_subdirectory(src/core)
-add_subdirectory(src/engine)
-add_subdirectory(src/gui)
+
+if(BUILD_FCITX)
+    add_subdirectory(src/engine)
+endif()
+
+if(BUILD_GUI)
+    add_subdirectory(src/gui)
+endif()
+
+if(BUILD_DAEMON)
+    add_subdirectory(src/daemon)
+endif()
+# Note: src/daemon/CMakeLists.txt no-ops if libevdev/xkbcommon are unavailable.
 
 # ---------------------------------------------------------------------------
-# Setup script
+# KDE/Fcitx5 migration helper (only relevant when using Fcitx module)
 # ---------------------------------------------------------------------------
-install(PROGRAMS scripts/punto-switcher-setup
-        DESTINATION ${CMAKE_INSTALL_BINDIR})
+if(BUILD_FCITX)
+    install(PROGRAMS scripts/punto-switcher-setup
+            DESTINATION ${CMAKE_INSTALL_BINDIR})
+endif()
 
 # ---------------------------------------------------------------------------
 # Tests (optional, enabled with -DBUILD_TESTING=ON)

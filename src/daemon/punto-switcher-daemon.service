@@ -1,0 +1,13 @@
+[Unit]
+Description=Punto Switcher keyboard helper (evdev/uinput)
+Documentation=man:punto-switcher-daemon(1)
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/punto-switcher-daemon
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target

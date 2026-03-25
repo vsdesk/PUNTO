@@ -1,7 +1,368 @@
-punto-switcher (1.0.0-1) unstable; urgency=medium
+punto-switcher (1.0.0-57) unstable; urgency=medium
 
-  * Initial release.
-  * Fcitx5 module for automatic ru<->en keyboard layout correction on Wayland.
-  * Features: auto-switch, swap-last-word, swap-selection, Qt6 config GUI.
+  * PuntoDaemon: make Alt+' hotkey toggle reliably by preserving tracker_.lastWord
+    after manual swaps (so second Alt+' works).
+  * PuntoDaemon: implement Alt+Shift+' for highlighted text using clipboard (Ctrl+C
+    + wl-paste) and injecting swapped text back into the selection.
+    Previously doSwapSelection() was a stub calling doSwapLastWord().
+
+  * PuntoDaemon: add daemonSwitchedLayout_ flag to distinguish daemon-initiated layout
+    switches (after auto-switch) from user-initiated ones (Ctrl+Shift). When the daemon
+    switches the layout, processEvent no longer resets lastWord — preserving it for the
+    manual Alt+' hotkey that users naturally press right after an auto-switch.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Wed, 25 Mar 2026 00:00:00 +0000
+
+punto-switcher (1.0.0-55) unstable; urgency=medium
+
+  * PuntoDaemon: after successful auto-switch, update wordBuffer to the swapped text so
+    that tracker_.onBoundary() stores lastWord = swapped ("привет"), not lastWord = original
+    ("ghbdtn"). Without this, a manual Alt+' after auto-switch would swap "ghbdtn" → "привет"
+    (visual no-op, deletes trailing space). Now Alt+' correctly reverts to the original word.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Wed, 25 Mar 2026 23:30:00 +0000
+
+punto-switcher (1.0.0-54) unstable; urgency=medium
+
+  * PuntoDaemon: release held Alt/Shift modifiers via uinput before emitting backspaces
+    and before Ctrl+V paste. When hotkeys (Alt+', Alt+Shift+') fire, Alt is still physically
+    held — without this fix the app received Alt+Backspace ("delete word") instead of plain
+    Backspace, and Alt+Ctrl+V instead of Ctrl+V, causing hotkeys to appear broken.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Wed, 25 Mar 2026 23:00:00 +0000
+
+punto-switcher (1.0.0-53) unstable; urgency=medium
+
+  * PuntoDaemon: remove Ctrl+Shift+V from injectViaWlCopyPaste — in Electron/VS Code/Cursor
+    apps it triggers a second paste, doubling the injected text ("приветпривет").
+  * PuntoDaemon: remove the hard "Cyrillic + KDE RU layout group" guard from checkAutoSwitch.
+    It blocked conversion of non-words typed on wrong layout (e.g. "руддщ" → "hello").
+    The plausible-script bigram guard already handles real Russian words correctly (привет
+    scores high → skip; руддщ scores low → let heuristic decide → swap).
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Wed, 25 Mar 2026 22:00:00 +0000
+
+punto-switcher (1.0.0-52) unstable; urgency=medium
+
+  * DaemonConfig: read KDE LayoutList from kxkbrc and build xkbLayoutString/xkbVariantString
+    matching KDE's exact index order (e.g. "ru,us" instead of hardcoded "us,ru").
+  * PuntoDaemon: use xkbLayoutString/xkbVariantString in setupXkb() so xkb group N == KDE
+    layout index N.  Fixes the EN/RU inversion on "ru,us" systems where every key was decoded
+    with the wrong language (EN keys decoded as RU and vice versa).
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Wed, 25 Mar 2026 21:00:00 +0000
+
+punto-switcher (1.0.0-51) unstable; urgency=medium
+
+  * PuntoDaemon: fix layout-sync race after Ctrl+Shift / Alt+Shift layout switch.
+    KDE updates the active group index asynchronously; detect modifier-only sequences
+    and wait 15 ms before querying the layout for the first subsequent normal key.
+    Previously first key after layout switch was decoded with the OLD layout
+    (e.g. 'п' instead of 'g' right after RU→EN switch) — making 'ghbdtn' appear
+    as 'привет' in the word buffer and never trigger auto-correction.
+  * PuntoDaemon: reset wordBuffer when KDE layout group index changes, so characters
+    typed before the switch (decoded with old layout) are not mixed with new ones.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Wed, 25 Mar 2026 20:00:00 +0000
+
+punto-switcher (1.0.0-50) unstable; urgency=medium
+
+  * PuntoDaemon: remove 220ms/120ms pre-inject sleeps (uinput queue is ordered, delays caused
+    user's next word to buffer and appear after paste = "deleted and re-inserted same word").
+  * PuntoDaemon: reduce wl-copy clipboard wait from 200ms to 80ms.
+  * PuntoDaemon: send Ctrl+Shift+V after Ctrl+V so paste works in terminal emulators too.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Wed, 26 Mar 2026 18:00:00 +0000
+
+punto-switcher (1.0.0-49) unstable; urgency=medium
+
+  * PuntoDaemon: try wtype first (works in terminals + all Wayland apps via virtual keyboard
+    protocol); fall back to wl-copy + Ctrl+V only if wtype is unavailable.
+  * PuntoDaemon: fix injectViaWlCopyPaste double-fork so waitpid never blocks (wl-copy serves
+    clipboard as background daemon process).
+  * PuntoDaemon: add debug log when plausible-script guard skips autoswitch.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Wed, 26 Mar 2026 16:00:00 +0000
+
+punto-switcher (1.0.0-48) unstable; urgency=medium
+
+  * PuntoDaemon: plausible-script bigram guard in checkAutoSwitch before shouldSwitch (works
+    without KDE layout DBus; prevents false swap + inject-restore flicker on words like привет).
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Wed, 26 Mar 2026 14:00:00 +0000
+
+punto-switcher (1.0.0-47) unstable; urgency=medium
+
+  * PuntoDaemon: skip autoswitch when word is Cyrillic and KDE layout group is already Russian
+    (fixes false swaps / wrong-case paste on correct Russian words); longer delays before paste
+    after backspace and after wl-copy.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Wed, 26 Mar 2026 12:00:00 +0000
+
+punto-switcher (1.0.0-46) unstable; urgency=medium
+
+  * AutoSwitchHeuristic: extra Russian bigrams (e.g. ет, ив); plausible-text guard for pure
+    Cyrillic/Latin so greetings like "привет"/"Привет" never autoswap; daemon default
+    confidence_threshold 0.18; optional min_plausible_dominant_bigram_score in daemon.ini.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 02:30:00 +0000
+
+punto-switcher (1.0.0-45) unstable; urgency=medium
+
+  * PuntoDaemon: on Wayland, try wl-copy + Ctrl+V before wtype (KWin rejects wtype; restores and
+    autoswap were failing when paste was only a second step).
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 02:10:00 +0000
+
+punto-switcher (1.0.0-44) unstable; urgency=medium
+
+  * debian/control: wl-clipboard in Depends (installed with the package; paste fallback on KDE).
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 01:55:00 +0000
+
+punto-switcher (1.0.0-43) unstable; urgency=medium
+
+  * PuntoDaemon: when wtype fails (KWin: no virtual keyboard protocol), fall back to wl-copy +
+    Ctrl+V via uinput (KDE/Wayland). Recommends: wl-clipboard.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 01:50:00 +0000
+
+punto-switcher (1.0.0-42) unstable; urgency=medium
+
+  * SessionEnv: run same /proc parent-environ import at startup (main) so KDE busctl/qdbus layout
+    switching works under sg, not only wtype.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 01:45:00 +0000
+
+punto-switcher (1.0.0-41) unstable; urgency=medium
+
+  * TextInjector: inherit WAYLAND_DISPLAY / XDG_RUNTIME_DIR / DBUS / DISPLAY from parent process chain
+    via /proc/<pid>/environ (fixes wtype under sg when env is stripped); log wtype exit code on failure.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 01:40:00 +0000
+
+punto-switcher (1.0.0-40) unstable; urgency=medium
+
+  * TextInjector: if whole-string wtype fails, retry typing UTF-8 per codepoint (fewer empty swaps).
+  * PuntoDaemon: skip autoswitch when swapWord is a no-op; longer delay before wtype after backspace.
+  * DaemonConfig: default confidence_threshold 0.28 (fewer bad triggers).
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 01:35:00 +0000
+
+punto-switcher (1.0.0-39) unstable; urgency=medium
+
+  * LayoutController: stop clearing layout cache on every setEnglish/setRussian (was re-querying
+    busctl on every keypress); 250ms cache; 4s backoff after failed getLayout; shorter timeouts.
+  * PuntoDaemon: brief delay after backspaces before wtype; hotkey swap applies KDE layout after
+    inject (same order as autoswitch).
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 01:30:00 +0000
+
+punto-switcher (1.0.0-38) unstable; urgency=medium
+
+  * Evdev: merge by-path keyboards with a full /dev/input/event0..127 scan; dedupe by st_dev/st_ino
+    so Bluetooth / extra HID keyboards not listed under by-path/*kbd* are still opened.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 01:25:00 +0000
+
+punto-switcher (1.0.0-37) unstable; urgency=medium
+
+  * LayoutController: timeout 0.5s on busctl/qdbus; skip D-Bus if DBUS_SESSION_BUS_ADDRESS unset
+    (avoids hang under sg / missing session bus so evdev poll loop runs and keys work).
+  * PuntoDaemon: do not block startup on KDE getLayout; warn if session bus env missing.
+  * main: --log-file PATH append redirect stderr/stdout for debugging.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 01:20:00 +0000
+
+punto-switcher (1.0.0-36) unstable; urgency=medium
+
+  * Daemon: --debug / -d sets PUNTO_DEBUG (works with sg input -c without export).
+  * PuntoDaemon: log every EV_KEY (press/repeat); log when xkb utf8 is empty (layout sync hint).
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 01:10:00 +0000
+
+punto-switcher (1.0.0-35) unstable; urgency=medium
+
+  * Evdev: open keyboard devices with O_NONBLOCK (fcntl after libevdev was unreliable); fixes poll+drain
+    deadlock so PUNTO_DEBUG key lines appear. Startup line when PUNTO_DEBUG is set.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 01:00:00 +0000
+
+punto-switcher (1.0.0-34) unstable; urgency=medium
+
+  * Evdev: open and poll ALL detected keyboards (dedupe usb vs usbv2 symlinks); non-blocking read +
+    poll so typing on built-in or USB is seen; one shared uinput.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 00:50:00 +0000
+
+punto-switcher (1.0.0-33) unstable; urgency=medium
+
+  * main: unbuffer stderr so PUNTO_DEBUG lines appear immediately.
+  * Evdev: if multiple keyboards, prefer USB over platform-i8042 (external typing); warn and list paths.
+  * PuntoDaemon: PUNTO_DEBUG logs each key utf8 and word-boundary buffer.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 00:35:00 +0000
+
+punto-switcher (1.0.0-32) unstable; urgency=medium
+
+  * PuntoDaemon: restore word if wtype fails after backspace; clear undo; try /usr/bin/wtype first;
+    PUNTO_DEBUG logs autoswitch decisions. TextInjector: absolute paths for common tools.
+  * Tests: fix Manual QA text for EN→RU autoswitch (English layout + ghbdtn + space).
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 00:25:00 +0000
+
+punto-switcher (1.0.0-31) unstable; urgency=medium
+
+  * EvdevUinput: pick keyboard via /dev/input/by-path/*kbd* and stricter key checks; open uinput
+    without O_NONBLOCK (avoid dropped synthetic keys); log libevdev device name at startup.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 00:10:00 +0000
+
+punto-switcher (1.0.0-30) unstable; urgency=medium
+
+  * Add /usr/bin/punto-switcher-stop: pkill -f (pkill -x fails — comm name limited to 15 chars).
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 00:00:00 +0000
+
+punto-switcher (1.0.0-29) unstable; urgency=medium
+
+  * DaemonConfig: derive layout en/ru indices from KDE ~/.config/kxkbrc LayoutList (no manual
+    daemon.ini for typical us+ru setups).
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Wed, 26 Mar 2026 23:45:00 +0000
+
+punto-switcher (1.0.0-28) unstable; urgency=medium
+
+  * LayoutController: kdeSetLayout fallbacks via qdbus org.kde.keyboard (Plasma 6); parse gdbus
+    "uint32 N" layout replies; main: exit with message if single-instance lock held; startup
+    warning when layout index unreadable; log chosen evdev keyboard path.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Wed, 26 Mar 2026 23:30:00 +0000
+
+punto-switcher (1.0.0-27) unstable; urgency=medium
+
+  * LayoutController: Plasma 6 uses org.kde.keyboard /Layouts (KeyboardLayouts.getLayout), not
+    org.kde.keyboardlayout; parse busctl "u N" output; setLayout via busctl.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Wed, 26 Mar 2026 23:00:00 +0000
+
+punto-switcher (1.0.0-26) unstable; urgency=medium
+
+  * Daemon: sync xkb layout with KDE via qdbus (fixes wrong chars / autoswitch / word buffer).
+  * Hotkeys: treat KEY_GRAVE like KEY_APOSTROPHE for Alt+' bindings.
+  * TextInjector: set WAYLAND_DISPLAY from XDG_RUNTIME_DIR/wayland-* if missing (wtype).
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Wed, 26 Mar 2026 22:45:00 +0000
+
+punto-switcher (1.0.0-25) unstable; urgency=medium
+
+  * Fix dh_install: use destination directories (etc/xdg/autostart/, usr/lib/udev/rules.d/);
+    rename sources to punto-switcher.desktop and 70-punto-switcher-uinput.rules so .deb
+    contains real files, not nested directories (fixes uinput Permission denied).
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Wed, 26 Mar 2026 22:25:00 +0000
+
+punto-switcher (1.0.0-24) unstable; urgency=medium
+
+  * udev: install rule as a single file under usr/lib/udev/rules.d/70-punto-switcher-uinput.rules;
+    preinst removes a mistaken directory 99-punto-switcher-uinput.rules/ so /dev/uinput gets group input.
+  * Rule uses SUBSYSTEM=="misc", KERNEL=="uinput".
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Wed, 26 Mar 2026 22:15:00 +0000
+
+punto-switcher (1.0.0-23) unstable; urgency=medium
+
+  * postinst: add all interactive users (UID ≥1000, real shell) to group "input", not only /home/*.
+  * Daemon: log errno when opening /dev/input or /dev/uinput fails.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Wed, 26 Mar 2026 22:00:00 +0000
+
+punto-switcher (1.0.0-22) unstable; urgency=medium
+
+  * preinst: remove mistaken directory /etc/xdg/autostart/punto-switcher-daemon.desktop
+    so KDE autostart works; install desktop file as punto-switcher.desktop.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Wed, 26 Mar 2026 21:30:00 +0000
+
+punto-switcher (1.0.0-21) unstable; urgency=medium
+
+  * postinst: ensure "input" group exists; log usermod failures; match /var/home;
+    optional SUDO_USER; uinput udev TAG+="uaccess".
+  * XDG autostart: run daemon via "sg input -c" so it works without logging out.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Wed, 26 Mar 2026 21:00:00 +0000
+
+punto-switcher (1.0.0-20) unstable; urgency=medium
+
+  * Zero-config UX: XDG autostart, udev uinput rule, postinst adds users to
+    "input" group; Depends on wtype; single-instance lock for the daemon.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Wed, 26 Mar 2026 14:00:00 +0000
+
+punto-switcher (1.0.0-19) unstable; urgency=medium
+
+  * Default binary package is evdev daemon + Qt config (no Fcitx5 dependency).
+    Fcitx5 module is optional at build time (-DBUILD_FCITX=ON).
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Wed, 26 Mar 2026 12:00:00 +0000
+
+punto-switcher (1.0.0-18) unstable; urgency=medium
+
+  * punto-switcher-setup: --sync-kde-keyboard + Plasma autostart to re-apply kxkbrc
+    and kglobalshortcutsrc from Fcitx5 after login (fixes us-only + stray Meta+Alt+K).
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Tue, 25 Mar 2026 22:00:00 +0000
+
+punto-switcher (1.0.0-17) unstable; urgency=medium
+
+  * punto-switcher-setup: sync KDE System Settings keyboard UI by writing
+    kglobalshortcutsrc (Switch to Next Keyboard Layout) to match Fcitx5, so the
+    shortcut is not “Not defined” and matches the system panel.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Tue, 25 Mar 2026 20:00:00 +0000
+
+punto-switcher (1.0.0-16) unstable; urgency=medium
+
+  * punto-switcher-setup: kxkbrc VariantList now matches LayoutList (fixes KDE GUI
+    showing only English); Options always follow Fcitx switch key (grp:ctrl_shift_toggle
+    for Ctrl+Shift); optional kwriteconfig6 sync for Keyboard KCM.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Tue, 25 Mar 2026 18:00:00 +0000
+
+punto-switcher (1.0.0-15) unstable; urgency=medium
+
+  * punto-switcher-setup: parse KDE layout shortcut preferring combos (Alt+Shift) over
+    lone Shift; recover Alt+Shift from full kglobalshortcutsrc string; hint when KDE
+    duplicates the same shortcut as Fcitx5 (fixes browser vs Cursor mismatch).
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Tue, 25 Mar 2026 16:00:00 +0000
+
+punto-switcher (1.0.0-14) unstable; urgency=medium
+
+  * punto-switcher-setup: reject lone-modifier KDE “layout switch” (e.g. Control_L);
+    fall back to Ctrl+Space; fix ANSI colour bytes; read_kde_layouts always ensures us+ru.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Tue, 25 Mar 2026 14:00:00 +0000
+
+punto-switcher (1.0.0-13) unstable; urgency=medium
+
+  * punto-switcher-setup: write ~/.config/environment.d/fcitx5-im.conf; always apply
+    Plasma+systemd IM env (even when KWin plugin exists); Flatpak browser overrides;
+    --status shows GTK_IM_MODULE for running browser PIDs.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Tue, 25 Mar 2026 12:00:00 +0000
+
+punto-switcher (1.0.0-12) unstable; urgency=medium
+
+  * punto-switcher-setup: when KWin fcitx5.so is missing, set Virtual Keyboard to
+    org.fcitx.Fcitx5.desktop (not Wayland Launcher) so fcitx5 uses the Wayland IM
+    frontend — fixes Russian layout in browsers (journal: native IM protocol 1).
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Tue, 25 Mar 2026 00:00:00 +0000
+
+punto-switcher (1.0.0-11) unstable; urgency=medium
+
+  * Do not overwrite full fcitx5 config during setup; update only hotkey-related sections.
+  * Preserve other fcitx5 settings required for XWayland/browser layout switching.
 
  -- PuntoSwitcher Maintainer <maintainer@example.com>  Mon, 25 Mar 2026 00:00:00 +0000

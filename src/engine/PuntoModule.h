@@ -32,7 +32,11 @@ FCITX_CONFIGURATION(
     // Alt+Cyrillic_e  — same physical key in Russian JCUKEN layout (generates э/Э)
     fcitx::Option<fcitx::KeyList> swapLastTextKey{
         this, "SwapLastText", _("Swap Last Word"),
-        fcitx::KeyList{fcitx::Key("Alt+apostrophe"), fcitx::Key("Alt+Cyrillic_e")}};
+        fcitx::KeyList{
+            fcitx::Key("Alt+apostrophe"),
+            fcitx::Key("Alt+quotedbl"),
+            fcitx::Key("Alt+grave"),
+            fcitx::Key("Alt+Cyrillic_e")}};
 
     // Same dual-keysym logic for swap-selection hotkey
     fcitx::Option<fcitx::KeyList> swapSelectionKey{

@@ -125,6 +125,11 @@ TEST(CharMappingWord, SwapAllCaps) {
     EXPECT_EQ(result, "GHBDTN");
 }
 
+TEST(CharMappingWord, SwapLatinAllCapsToRussianAllCaps) {
+    // Inverse: caps Latin typed on wrong layout → caps Russian
+    EXPECT_EQ(CharMapping::swapWord(std::string("GHBDTN")), utf32_to_utf8(U"ПРИВЕТ"));
+}
+
 TEST(CharMappingWord, DoubleSwapIsIdentity) {
     // Swapping twice should return the original word
     std::string original = "Привет";

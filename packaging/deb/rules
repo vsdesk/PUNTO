@@ -8,9 +8,14 @@ export DH_VERBOSE = 1
 	dh $@ --buildsystem=cmake
 
 override_dh_auto_configure:
+	@pkg-config --print-errors --exists libevdev xkbcommon || \
+		(echo >&2 "error: install libevdev-dev and libxkbcommon-dev (Build-Depends)"; exit 1)
 	dh_auto_configure -- \
 		-DCMAKE_BUILD_TYPE=Release \
 		-DBUILD_TESTING=OFF \
+		-DBUILD_FCITX=OFF \
+		-DBUILD_DAEMON=ON \
+		-DBUILD_GUI=ON \
 		-DCMAKE_INSTALL_PREFIX=/usr \
 		-DCMAKE_INSTALL_LIBDIR=lib/$(DEB_HOST_MULTIARCH)
 

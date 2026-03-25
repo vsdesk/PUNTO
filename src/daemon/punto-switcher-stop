@@ -1,0 +1,9 @@
+#!/bin/sh
+# Linux truncates /proc/*/comm to 15 bytes, so "punto-switcher-daemon" does not match
+# pkill -x. Use a full-command-line match instead.
+if pkill -f '/usr/bin/punto-switcher-daemon' 2>/dev/null; then
+    echo "punto-switcher-daemon: stopped"
+    exit 0
+fi
+echo "punto-switcher-daemon: not running" >&2
+exit 1

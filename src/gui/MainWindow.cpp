@@ -15,10 +15,15 @@
 #include <QTextEdit>
 #include <QTimer>
 
-// Default hotkey strings (Fcitx5 format)
+#ifndef PUNTO_WITH_FCITX
+#error "PUNTO_WITH_FCITX must be defined by CMake (0 or 1)"
+#endif
+
+// Default hotkey strings (same format for Fcitx5 and daemon)
 static const char* DEFAULT_SWAP_LAST      = "Alt+apostrophe";
 static const char* DEFAULT_SWAP_SELECTION = "Alt+shift+apostrophe";
 static const char* DEFAULT_TOGGLE_AUTO    = "Alt+shift+a";
+static const char* DEFAULT_UNDO_SWITCH  = "Alt+shift+BackSpace";
 static const int    DEFAULT_MIN_WORD_LEN  = 3;
 static const double DEFAULT_CONFIDENCE    = 0.15;
 
@@ -27,10 +32,12 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     setMinimumSize(520, 480);
     buildUI();
     loadConfig();
-    // Refresh setup status after the window is shown
+#if PUNTO_WITH_FCITX
     QTimer::singleShot(0, this, &MainWindow::refreshSetupStatus);
+#endif
 }
 
+#if PUNTO_WITH_FCITX
 void MainWindow::buildSetupTab(QTabWidget* tabs) {
     auto* setupTab = new QWidget;
     auto* lay = new QVBoxLayout(setupTab);
@@ -133,6 +140,7 @@ void MainWindow::buildSetupTab(QTabWidget* tabs) {
 
     tabs->addTab(setupTab, tr("Setup"));
 }
+#endif
 
 void MainWindow::buildUI() {
     auto* central = new QWidget(this);
@@ -144,10 +152,11 @@ void MainWindow::buildUI() {
     auto* tabs = new QTabWidget(this);
     mainLayout->addWidget(tabs);
 
-    // ---- Tab 0: Setup ----
+#if PUNTO_WITH_FCITX
     buildSetupTab(tabs);
+#endif
 
-    // ---- Tab 1: Hotkeys ----
+    // ---- Hotkeys ----
     auto* hotkeysTab = new QWidget;
     auto* hkLayout = new QFormLayout(hotkeysTab);
     hkLayout->setSpacing(8);
@@ -155,10 +164,12 @@ void MainWindow::buildUI() {
     hkSwapLast_      = new HotkeyEditor(this);
     hkSwapSelection_ = new HotkeyEditor(this);
     hkToggleAuto_    = new HotkeyEditor(this);
+    hkUndoSwitch_    = new HotkeyEditor(this);
 
     hkLayout->addRow(tr("Swap last word:"), hkSwapLast_);
     hkLayout->addRow(tr("Swap selection:"), hkSwapSelection_);
     hkLayout->addRow(tr("Toggle auto-switch:"), hkToggleAuto_);
+    hkLayout->addRow(tr("Undo last switch:"), hkUndoSwitch_);
 
     auto* hkNote = new QLabel(
         tr("<small><i>Conflict note: if a hotkey conflicts with system or application "
@@ -211,6 +222,7 @@ void MainWindow::buildUI() {
     auto* dbgLayout = new QFormLayout(debugTab);
     dbgLayout->setSpacing(8);
 
+#if PUNTO_WITH_FCITX
     logLevel_ = new QComboBox(this);
     logLevel_->addItems({tr("Disabled"), tr("Warning"), tr("Debug"), tr("Verbose")});
     dbgLayout->addRow(tr("Fcitx5 log level:"), logLevel_);
@@ -218,6 +230,12 @@ void MainWindow::buildUI() {
     auto* dbgNote = new QLabel(
         tr("<small>Log output goes to journald / ~/.local/share/fcitx5/logs/.<br>"
            "Reload Fcitx5 after changing log level.</small>"));
+#else
+    auto* dbgNote = new QLabel(
+        tr("<small>punto-switcher-daemon writes diagnostics to stderr when run from a terminal.<br>"
+           "After saving, a user systemd restart is attempted (<code>systemctl --user restart "
+           "punto-switcher-daemon</code>).</small>"));
+#endif
     dbgNote->setWordWrap(true);
     dbgLayout->addRow(dbgNote);
 
@@ -247,31 +265,32 @@ void MainWindow::buildUI() {
     connect(defaultsBtn_, &QPushButton::clicked, this, &MainWindow::onRestoreDefaults);
 }
 
-// ---------------------------------------------------------------------------
-// Config path: ~/.config/fcitx5/conf/punto-switcher.conf
-// ---------------------------------------------------------------------------
-
 QString MainWindow::configPath() const {
     QString home = QDir::homePath();
+#if PUNTO_WITH_FCITX
     return home + "/.config/fcitx5/conf/punto-switcher.conf";
+#else
+    return home + "/.config/punto-switcher/daemon.ini";
+#endif
 }
 
 void MainWindow::loadConfig() {
     QSettings cfg(configPath(), QSettings::IniFormat);
 
-    // QSettings with INI format: keys are plain strings, groups = sections
+#if PUNTO_WITH_FCITX
     hkSwapLast_->setFromFcitxString(
         cfg.value("SwapLastText", DEFAULT_SWAP_LAST).toString());
     hkSwapSelection_->setFromFcitxString(
         cfg.value("SwapSelection", DEFAULT_SWAP_SELECTION).toString());
     hkToggleAuto_->setFromFcitxString(
         cfg.value("ToggleAutoSwitch", DEFAULT_TOGGLE_AUTO).toString());
+    hkUndoSwitch_->setFromFcitxString(
+        cfg.value("UndoLastSwitch", DEFAULT_UNDO_SWITCH).toString());
 
     autoEnabled_->setChecked(
         cfg.value("AutoSwitch", true).toBool());
     minWordLen_->setValue(
         cfg.value("MinWordLength", DEFAULT_MIN_WORD_LEN).toInt());
-    // ConfidenceThresholdPct stores threshold * 100 as integer (e.g. 15 = 0.15)
     int pct = cfg.value("ConfidenceThresholdPct",
                         qRound(DEFAULT_CONFIDENCE * 100)).toInt();
     confidence_->setValue(pct / 100.0);
@@ -279,29 +298,62 @@ void MainWindow::loadConfig() {
     QString ll = cfg.value("LogLevel", "Warning").toString();
     int idx = logLevel_->findText(ll);
     logLevel_->setCurrentIndex(idx >= 0 ? idx : 1);
+#else
+    cfg.beginGroup("hotkeys");
+    hkSwapLast_->setFromFcitxString(
+        cfg.value("swap_last", DEFAULT_SWAP_LAST).toString());
+    hkSwapSelection_->setFromFcitxString(
+        cfg.value("swap_selection", DEFAULT_SWAP_SELECTION).toString());
+    hkToggleAuto_->setFromFcitxString(
+        cfg.value("toggle_auto", DEFAULT_TOGGLE_AUTO).toString());
+    hkUndoSwitch_->setFromFcitxString(
+        cfg.value("undo", DEFAULT_UNDO_SWITCH).toString());
+    cfg.endGroup();
+
+    cfg.beginGroup("autoswitch");
+    autoEnabled_->setChecked(cfg.value("enabled", true).toBool());
+    minWordLen_->setValue(cfg.value("min_word_length", DEFAULT_MIN_WORD_LEN).toInt());
+    confidence_->setValue(cfg.value("confidence_threshold", DEFAULT_CONFIDENCE).toDouble());
+    cfg.endGroup();
+#endif
 }
 
 void MainWindow::saveConfig() {
-    // Ensure directory exists
     QDir().mkpath(QFileInfo(configPath()).absolutePath());
 
     QSettings cfg(configPath(), QSettings::IniFormat);
 
+#if PUNTO_WITH_FCITX
     cfg.setValue("SwapLastText",       hkSwapLast_->fcitxString());
     cfg.setValue("SwapSelection",      hkSwapSelection_->fcitxString());
     cfg.setValue("ToggleAutoSwitch",   hkToggleAuto_->fcitxString());
+    cfg.setValue("UndoLastSwitch",    hkUndoSwitch_->fcitxString());
     cfg.setValue("AutoSwitch",            autoEnabled_->isChecked());
     cfg.setValue("MinWordLength",         minWordLen_->value());
     cfg.setValue("ConfidenceThresholdPct", qRound(confidence_->value() * 100));
     cfg.setValue("LogLevel",           logLevel_->currentText());
+#else
+    cfg.beginGroup("hotkeys");
+    cfg.setValue("swap_last",      hkSwapLast_->fcitxString());
+    cfg.setValue("swap_selection", hkSwapSelection_->fcitxString());
+    cfg.setValue("toggle_auto",    hkToggleAuto_->fcitxString());
+    cfg.setValue("undo",           hkUndoSwitch_->fcitxString());
+    cfg.endGroup();
+    cfg.beginGroup("autoswitch");
+    cfg.setValue("enabled", autoEnabled_->isChecked());
+    cfg.setValue("min_word_length", minWordLen_->value());
+    cfg.setValue("confidence_threshold", confidence_->value());
+    cfg.endGroup();
+#endif
 
     cfg.sync();
 }
 
+#if PUNTO_WITH_FCITX
 void MainWindow::reloadFcitx5() {
-    // Send D-Bus reload signal to Fcitx5, ignoring errors if it's not running
     QProcess::startDetached("fcitx5-remote", {"-r"});
 }
+#endif
 
 // ---------------------------------------------------------------------------
 // Slots
@@ -309,8 +361,14 @@ void MainWindow::reloadFcitx5() {
 
 void MainWindow::onSave() {
     saveConfig();
+#if PUNTO_WITH_FCITX
     reloadFcitx5();
     statusBar()->showMessage(tr("Settings saved. Fcitx5 reload requested."), 3000);
+#else
+    QProcess::startDetached("systemctl", {"--user", "try-restart", "punto-switcher-daemon"});
+    statusBar()->showMessage(
+        tr("Settings saved. Tried: systemctl --user restart punto-switcher-daemon"), 4000);
+#endif
 }
 
 void MainWindow::onCancel() {
@@ -327,10 +385,13 @@ void MainWindow::onRestoreDefaults() {
     hkSwapLast_->setFromFcitxString(DEFAULT_SWAP_LAST);
     hkSwapSelection_->setFromFcitxString(DEFAULT_SWAP_SELECTION);
     hkToggleAuto_->setFromFcitxString(DEFAULT_TOGGLE_AUTO);
+    hkUndoSwitch_->setFromFcitxString(DEFAULT_UNDO_SWITCH);
     autoEnabled_->setChecked(true);
     minWordLen_->setValue(DEFAULT_MIN_WORD_LEN);
     confidence_->setValue(DEFAULT_CONFIDENCE);
+#if PUNTO_WITH_FCITX
     logLevel_->setCurrentIndex(1);
+#endif
 
     statusBar()->showMessage(tr("Defaults restored (not saved yet — click Save)"), 3000);
 }
@@ -340,11 +401,16 @@ void MainWindow::onAbout() {
         this,
         tr("About Punto Switcher"),
         tr("<b>Punto Switcher</b> v1.0<br>"
-           "Automatic ru↔en keyboard layout corrector for Wayland/Fcitx5.<br><br>"
+#if PUNTO_WITH_FCITX
+           "Automatic ru↔en layout corrector (Fcitx5 module).<br><br>"
+#else
+           "Automatic ru↔en layout corrector (evdev daemon, no Fcitx5).<br><br>"
+#endif
            "License: GPL-2.0+<br>"
            "Source: https://github.com/your-org/punto-switcher"));
 }
 
+#if PUNTO_WITH_FCITX
 void MainWindow::refreshSetupStatus() {
     // Run 'punto-switcher-setup --status' and parse output
     auto* proc = new QProcess(this);
@@ -395,6 +461,7 @@ void MainWindow::refreshSetupStatus() {
                "Try reinstalling the package.</p>"));
     }
 }
+#endif
 
 void MainWindow::onRunSetup() {}
 void MainWindow::onUndoSetup() {}

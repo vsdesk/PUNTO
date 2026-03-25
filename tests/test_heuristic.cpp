@@ -42,6 +42,13 @@ TEST(Heuristic, RealRussianWordNotSwitched) {
     EXPECT_FALSE(result) << "'привет' should not trigger auto-switch";
 }
 
+TEST(Heuristic, RussianTitleCaseGreetingNotSwitched) {
+    AutoSwitchHeuristic h;
+    std::string ru = utf32_to_utf8(U"Привет");
+    EXPECT_FALSE(h.shouldSwitch(ru, CharMapping::Layout::Russian))
+        << "Capitalized Russian greeting should not trigger auto-switch";
+}
+
 TEST(Heuristic, ShortWordIgnored) {
     AutoSwitchHeuristic h;
     HeuristicConfig cfg;
@@ -123,7 +130,7 @@ TEST(Guard, UrlGuarded) {
 
 TEST(Heuristic, HighThresholdPreventsSwitch) {
     HeuristicConfig cfg;
-    cfg.confidenceThreshold = 0.99; // impossibly high
+    cfg.confidenceThreshold = 1.5; // above any possible (scoreSwapped - scoreOriginal) ∈ [0,1]
     AutoSwitchHeuristic h(cfg);
     EXPECT_FALSE(h.shouldSwitch("ghbdtn", CharMapping::Layout::English));
 }
@@ -160,9 +167,9 @@ Manual QA Checklist (run in KDE Wayland):
    - Verify: "hello" becomes "руддщ".
 
 3. AUTO-SWITCH (EN→RU):
-   - Keep Russian layout active.
-   - Type "ghbdtn " (with trailing space, 6 chars before space).
-   - Verify: text becomes "привет " automatically.
+   - Keep English (US) layout active in KDE.
+   - Type the Latin keys for "привет" on a Russian JCUKEN muscle map: ghbdtn then Space (not "ghjdtn" — и is the B key).
+   - Verify: "ghbdtn " becomes "привет " after the space (autoswitch runs on word boundaries only).
 
 4. AUTO-SWITCH ANTI-FLICKER:
    - Quickly type 10 chars in EN layout.

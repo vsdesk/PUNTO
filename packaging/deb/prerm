@@ -1,16 +1,8 @@
 #!/bin/sh
-# prerm — откат при удалении пакета
-
 set -e
 
 case "$1" in
     remove|purge)
-        # Убрать env vars и autostart для всех пользователей
-        getent passwd | awk -F: '$3>=1000 && $3<65534 && $6~/^\/home/ {print $6}' | \
-        while read -r home; do
-            rm -f "${home}/.config/plasma-workspace/env/fcitx5-im.sh"
-            rm -f "${home}/.config/autostart/punto-switcher-setup.desktop"
-        done
         ;;
 esac
 

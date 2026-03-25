@@ -23,11 +23,15 @@ private slots:
     void onAbout();
     void onRunSetup();
     void onUndoSetup();
+#if PUNTO_WITH_FCITX
     void refreshSetupStatus();
+#endif
 
 private:
     void buildUI();
+#if PUNTO_WITH_FCITX
     void buildSetupTab(QTabWidget* tabs);
+#endif
     void loadConfig();
     void saveConfig();
     QString configPath() const;
@@ -42,14 +46,15 @@ private:
     HotkeyEditor* hkSwapLast_;
     HotkeyEditor* hkSwapSelection_;
     HotkeyEditor* hkToggleAuto_;
+    HotkeyEditor* hkUndoSwitch_;
 
     // Auto-switch tab
     QCheckBox*      autoEnabled_;
     QSpinBox*       minWordLen_;
     QDoubleSpinBox* confidence_;
 
-    // Debug tab
-    QComboBox*  logLevel_;
+    // Debug tab (Fcitx5 build only)
+    QComboBox* logLevel_ = nullptr;
 
     QPushButton* saveBtn_;
     QPushButton* cancelBtn_;
