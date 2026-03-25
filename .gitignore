@@ -1,0 +1,26 @@
+# CMake / local build trees
+/_build/
+/build/
+
+# dpkg-buildpackage / script output
+/_dist/
+/dist/
+/debian/
+
+# Binary packages and Debian build metadata
+*.deb
+*.ddeb
+*.changes
+*.buildinfo
+*.orig.tar.gz
+src.tgz
+punto-switcher_*_latest.deb
+
+# Scratch dirs from packaging inspection
+/_inspectdpkg11/
+/_tmpdeb_libcheck8/
+
+# Editor / local
+.cursor/
+.cursorrules
+Makefile
