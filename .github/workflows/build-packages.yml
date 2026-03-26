@@ -28,6 +28,7 @@ jobs:
 
       - name: Configure (tests enabled)
         run: |
+          rm -rf build
           cmake -B build \
             -DCMAKE_BUILD_TYPE=Debug \
             -DBUILD_TESTING=ON \

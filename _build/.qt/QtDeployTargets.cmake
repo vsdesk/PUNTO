@@ -1,8 +1,0 @@
-set(__QT_DEPLOY_TARGET_punto-core_FILE /home/i/PUNTO/_build/src/core/libpunto-core.a)
-set(__QT_DEPLOY_TARGET_punto-core_TYPE STATIC_LIBRARY)
-set(__QT_DEPLOY_TARGET_punto-switcher-config_FILE /home/i/PUNTO/_build/src/gui/punto-switcher-config)
-set(__QT_DEPLOY_TARGET_punto-switcher-config_TYPE EXECUTABLE)
-set(__QT_DEPLOY_TARGET_punto-switcher-daemon_FILE /home/i/PUNTO/_build/src/daemon/punto-switcher-daemon)
-set(__QT_DEPLOY_TARGET_punto-switcher-daemon_TYPE EXECUTABLE)
-set(__QT_DEPLOY_TARGET_punto-tests_FILE /home/i/PUNTO/_build/tests/punto-tests)
-set(__QT_DEPLOY_TARGET_punto-tests_TYPE EXECUTABLE)

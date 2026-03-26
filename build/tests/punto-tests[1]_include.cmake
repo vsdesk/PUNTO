@@ -1,5 +1,0 @@
-if(EXISTS "/home/i/PUNTO/build/tests/punto-tests[1]_tests.cmake")
-  include("/home/i/PUNTO/build/tests/punto-tests[1]_tests.cmake")
-else()
-  add_test(punto-tests_NOT_BUILT punto-tests_NOT_BUILT)
-endif()
