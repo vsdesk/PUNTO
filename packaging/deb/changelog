@@ -1,3 +1,12 @@
+punto-switcher (1.0.0-77) unstable; urgency=medium
+
+  * Debounce keyboard-topology watchdog reinit:
+    require 3 consecutive mismatch probes before in-process reinit, preventing
+    transient event-node churn (e.g. event16/event17 flaps) from causing
+    reinit thrash and apparent daemon stalls during normal typing.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 10:00:00 +0000
+
 punto-switcher (1.0.0-76) unstable; urgency=medium
 
   * Add xkb self-heal for "paste + Ctrl+Z" stuck-control state:

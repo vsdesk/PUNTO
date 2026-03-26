@@ -840,6 +840,7 @@ int PuntoDaemon::run() {
     }
 
     auto lastTopologyProbe = std::chrono::steady_clock::now();
+    int topologyMismatchStreak = 0;
     while (true) {
         const auto& devs = io_.devices();
         if (devs.empty()) {
@@ -858,18 +859,24 @@ int PuntoDaemon::run() {
             if ((now - lastTopologyProbe) > std::chrono::seconds(10)) {
                 lastTopologyProbe = now;
                 if (io_.hasDeviceSetChanged(cfg_.devicePath)) {
-                    std::cerr << "punto-switcher-daemon: keyboard topology changed, reinitializing devices\n";
-                    io_.shutdown();
-                    tracker_.reset();
-                    keyState_.fill(0);
-                    swallowed_.clear();
-                    pendingLayoutRefresh_ = false;
-                    onlyModifiersSinceNormalKey_ = false;
-                    pendingUrlSecondSlash_ = false;
-                    capsLockOn_ = false;
-                    daemonSwitchedLayout_ = false;
-                    ::usleep(500000);
-                    (void)io_.init(cfg_.devicePath);
+                    ++topologyMismatchStreak;
+                    if (topologyMismatchStreak >= 3) {
+                        std::cerr << "punto-switcher-daemon: keyboard topology changed stably, reinitializing devices\n";
+                        io_.shutdown();
+                        tracker_.reset();
+                        keyState_.fill(0);
+                        swallowed_.clear();
+                        pendingLayoutRefresh_ = false;
+                        onlyModifiersSinceNormalKey_ = false;
+                        pendingUrlSecondSlash_ = false;
+                        capsLockOn_ = false;
+                        daemonSwitchedLayout_ = false;
+                        ::usleep(500000);
+                        (void)io_.init(cfg_.devicePath);
+                        topologyMismatchStreak = 0;
+                    }
+                } else {
+                    topologyMismatchStreak = 0;
                 }
             }
             continue;
@@ -925,6 +932,7 @@ int PuntoDaemon::run() {
             daemonSwitchedLayout_ = false;
             ::usleep(500000);
             (void)io_.init(cfg_.devicePath);
+            topologyMismatchStreak = 0;
             continue;
         }
     }
