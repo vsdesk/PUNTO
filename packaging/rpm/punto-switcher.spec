@@ -11,7 +11,6 @@ BuildRequires:  cmake >= 3.20
 BuildRequires:  gcc-c++
 BuildRequires:  pkgconfig
 BuildRequires:  fcitx5-devel
-BuildRequires:  fcitx5-utils-devel
 BuildRequires:  qt6-qtbase-devel
 BuildRequires:  gtest-devel
 BuildRequires:  extra-cmake-modules
@@ -62,5 +61,5 @@ Features:
 %{_datadir}/applications/punto-switcher-config.desktop
 
 %changelog
-* Mon Mar 25 2026 PuntoSwitcher Maintainer <maintainer@example.com> - 1.0.0-1
+* Wed Mar 25 2026 PuntoSwitcher Maintainer <maintainer@example.com> - 1.0.0-1
 - Initial release
