@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <sys/file.h>
 #include <unistd.h>
+#include <signal.h>
 
 #include <cstdio>
 #include <cstdlib>
@@ -35,6 +36,12 @@ static bool acquireSingleInstanceLock() {
 }
 
 int main(int argc, char** argv) {
+    // Daemon must not be suspended by terminal job-control shortcuts (Ctrl+Z),
+    // especially during foreground debug runs from a shell.
+    (void)signal(SIGTSTP, SIG_IGN);
+    (void)signal(SIGTTIN, SIG_IGN);
+    (void)signal(SIGTTOU, SIG_IGN);
+
     /* Before LayoutController / wtype: sg(1) drops DBUS + Wayland; pull from parent /proc environ. */
     punto::ensureSessionEnvFromParents();
 

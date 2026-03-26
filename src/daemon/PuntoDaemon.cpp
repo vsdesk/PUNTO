@@ -79,6 +79,21 @@ static char32_t toLowerLetter(char32_t c) {
     return c;
 }
 
+static bool isSuspiciousControlUtf8(const std::u32string& u32) {
+    if (u32.size() != 1) return false;
+    const char32_t c = u32[0];
+    // Ctrl+letter artifacts are usually U+0001..U+001A. Exclude tab/newline.
+    if (c == U'\t' || c == U'\n' || c == U'\r') return false;
+    return c > 0 && c < 0x20;
+}
+
+static void clearTransientXkbMods(::xkb_state* xkbState, int layoutIndex) {
+    if (!xkbState) return;
+    const xkb_mod_mask_t locked = xkb_state_serialize_mods(xkbState, XKB_STATE_MODS_LOCKED);
+    const xkb_layout_index_t lg = layoutIndex >= 0 ? static_cast<xkb_layout_index_t>(layoutIndex) : 0;
+    xkb_state_update_mask(xkbState, 0, 0, locked, lg, lg, lg);
+}
+
 } // namespace
 
 PuntoDaemon::PuntoDaemon(DaemonConfig cfg) : cfg_(std::move(cfg)), layout_(cfg_) {
@@ -742,6 +757,16 @@ void PuntoDaemon::processEvent(const input_event& ev) {
             io_.forward(ev);
             return;
         }
+        if (isSuspiciousControlUtf8(u32)) {
+            // Self-heal: xkb can keep Ctrl depressed after shortcut storms (paste + undo),
+            // producing control bytes for normal letters. Clear transient mods and retry.
+            clearTransientXkbMods(xkbState_, curLayout);
+            n = xkb_state_key_get_utf8(xkbState_, code + 8, buf, sizeof(buf));
+            if (n > 0) {
+                utf8 = std::string(buf, static_cast<size_t>(n));
+                u32 = utf8_to_utf32(utf8);
+            }
+        }
         char32_t ch = u32[0];
 
         if (WordSwapper::isWordBoundary(ch)) {
@@ -814,6 +839,7 @@ int PuntoDaemon::run() {
                       "will not work. With sg(1), export it from your session before sg (see loginctl show-session).\n";
     }
 
+    auto lastTopologyProbe = std::chrono::steady_clock::now();
     while (true) {
         const auto& devs = io_.devices();
         if (devs.empty()) {
@@ -827,7 +853,27 @@ int PuntoDaemon::run() {
             pfds[i].fd     = libevdev_get_fd(devs[i]);
             pfds[i].events = POLLIN;
         }
-        if (poll(pfds.data(), pfds.size(), -1) <= 0) continue;
+        if (poll(pfds.data(), pfds.size(), 2000) <= 0) {
+            const auto now = std::chrono::steady_clock::now();
+            if ((now - lastTopologyProbe) > std::chrono::seconds(10)) {
+                lastTopologyProbe = now;
+                if (io_.hasDeviceSetChanged(cfg_.devicePath)) {
+                    std::cerr << "punto-switcher-daemon: keyboard topology changed, reinitializing devices\n";
+                    io_.shutdown();
+                    tracker_.reset();
+                    keyState_.fill(0);
+                    swallowed_.clear();
+                    pendingLayoutRefresh_ = false;
+                    onlyModifiersSinceNormalKey_ = false;
+                    pendingUrlSecondSlash_ = false;
+                    capsLockOn_ = false;
+                    daemonSwitchedLayout_ = false;
+                    ::usleep(500000);
+                    (void)io_.init(cfg_.devicePath);
+                }
+            }
+            continue;
+        }
 
         for (size_t i = 0; i < devs.size(); ++i) {
             if (pfds[i].revents & (POLLERR | POLLHUP | POLLNVAL)) {

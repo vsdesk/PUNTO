@@ -1,3 +1,48 @@
+punto-switcher (1.0.0-76) unstable; urgency=medium
+
+  * Add xkb self-heal for "paste + Ctrl+Z" stuck-control state:
+    when non-modifier key decodes as control byte unexpectedly, daemon clears
+    transient depressed/latched xkb modifiers and retries decode. This restores
+    normal typing/autoswitch without touching global Ctrl shortcut behavior.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 09:30:00 +0000
+
+punto-switcher (1.0.0-75) unstable; urgency=medium
+
+  * Ignore terminal job-control signals in daemon process:
+    SIGTSTP/SIGTTIN/SIGTTOU are now ignored so accidental Ctrl+Z during
+    foreground debug run does not suspend the daemon and mimic a freeze.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 09:00:00 +0000
+
+punto-switcher (1.0.0-74) unstable; urgency=medium
+
+  * Fix daemon stall loop caused by transient extra keyboard event nodes:
+    topology watchdog now reinitializes only when already-opened devices
+    disappear/are replaced, and ignores additive temporary devices (e.g.
+    short-lived eventXX entries) to prevent repeated reinit thrashing.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 08:30:00 +0000
+
+punto-switcher (1.0.0-73) unstable; urgency=medium
+
+  * Add non-intrusive runtime watchdog for "daemon stalled with no logs":
+    poll now wakes periodically, emits debug heartbeat (PUNTO_DEBUG=2), and
+    probes keyboard topology every 10s; on mismatch daemon performs in-process
+    input reinit. No Ctrl/modifier behavior changes.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 08:00:00 +0000
+
+punto-switcher (1.0.0-72) unstable; urgency=medium
+
+  * Add extended daemon debug trace for "stops after big paste" investigation:
+    - PUNTO_DEBUG=2 now logs modifier state snapshots and why key events are
+      forwarded as raw shortcuts;
+    - logs hotkey activations, autoswitch replacement decisions, and wl-copy
+      fallback inject lifecycle (begin/sent Ctrl+V).
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 07:30:00 +0000
+
 punto-switcher (1.0.0-71) unstable; urgency=medium
 
   * Uppercase stability: stop relying on xkb Lock modifier state (can desync after

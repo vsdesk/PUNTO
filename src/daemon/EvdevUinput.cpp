@@ -17,6 +17,7 @@
 #include <unordered_set>
 #include <vector>
 #include <algorithm>
+#include <set>
 
 #include <glob.h>
 
@@ -137,6 +138,12 @@ static std::vector<std::string> findDefaultKeyboardPaths() {
 
     std::cerr << "punto-switcher-daemon: no suitable keyboard under /dev/input/by-path/*kbd* or event0..127\n";
     return {};
+}
+
+static std::set<std::string> inodeSetFromPaths(const std::vector<std::string>& paths) {
+    std::set<std::string> out;
+    for (const auto& p : paths) out.insert(inodeKey(p));
+    return out;
 }
 
 } // namespace
@@ -290,6 +297,32 @@ bool EvdevUinput::init(const std::string& userPath) {
     }
 
     return true;
+}
+
+bool EvdevUinput::hasDeviceSetChanged(const std::string& userPath) const {
+    std::vector<std::string> paths;
+    if (userPath.empty()) paths = findDefaultKeyboardPaths();
+    else paths.push_back(userPath);
+
+    std::set<std::string> wanted = inodeSetFromPaths(paths);
+    std::set<std::string> have;
+    for (libevdev* d : devs_) {
+        if (!d) continue;
+        const int fd = libevdev_get_fd(d);
+        if (fd < 0) continue;
+        struct stat st {};
+        if (::fstat(fd, &st) != 0) continue;
+        have.insert(std::to_string(static_cast<unsigned long long>(st.st_dev)) + ":" +
+                    std::to_string(static_cast<unsigned long long>(st.st_ino)));
+    }
+    // Stable-change policy:
+    // - If one of currently opened devices disappeared/replaced -> reinit required.
+    // - If only new extra devices appeared (often transient event nodes), do not reinit
+    //   immediately to avoid oscillation loops that stall typing.
+    for (const auto& opened : have) {
+        if (!wanted.count(opened)) return true;
+    }
+    return false;
 }
 
 void EvdevUinput::forward(const input_event& ev) {
