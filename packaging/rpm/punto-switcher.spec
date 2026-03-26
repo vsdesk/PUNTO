@@ -40,7 +40,7 @@ Features:
 %build
 %cmake \
     -DCMAKE_BUILD_TYPE=Release \
-    -DBUILD_TESTING=OFF \
+    -DBUILD_TESTING=ON \
     -DCMAKE_INSTALL_PREFIX=%{_prefix} \
     -DCMAKE_INSTALL_LIBDIR=%{_libdir}
 %cmake_build
@@ -49,8 +49,8 @@ Features:
 %cmake_install
 
 %check
-# Run unit tests during package build (optional; requires gtest)
-# %cmake_build --target test
+# Run unit tests via ctest to avoid relying on a generator-specific "test" target.
+ctest --test-dir redhat-linux-build --output-on-failure
 
 %files
 %license LICENSE
