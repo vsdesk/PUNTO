@@ -18,6 +18,8 @@ RUN dnf install -y \
     fcitx5-devel \
     qt6-qtbase-devel \
     qt6-qttools-devel \
+    libevdev-devel \
+    libxkbcommon-devel \
     gtest-devel \
     extra-cmake-modules \
     && dnf clean all
