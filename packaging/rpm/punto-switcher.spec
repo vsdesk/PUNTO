@@ -4,7 +4,7 @@ Release:        1%{?dist}
 Summary:        Punto-style automatic ru<->en keyboard layout corrector for Wayland
 
 License:        GPL-2.0+
-URL:            https://github.com/your-org/punto-switcher
+URL:            https://github.com/vsdesk/PUNTO
 Source0:        %{name}-%{version}.tar.gz
 
 BuildRequires:  cmake >= 3.20
