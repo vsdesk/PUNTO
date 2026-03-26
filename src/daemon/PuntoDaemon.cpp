@@ -70,6 +70,15 @@ static unsigned int keyNameToCode(const std::string& name) {
     return 0;
 }
 
+static bool isRuUpperLetter(char32_t c) { return (c >= U'А' && c <= U'Я') || c == U'Ё'; }
+static bool isEnUpperLetter(char32_t c) { return c >= U'A' && c <= U'Z'; }
+static char32_t toLowerLetter(char32_t c) {
+    if (c >= U'A' && c <= U'Z') return c + 32;
+    if (c == U'Ё') return U'ё';
+    if (c >= U'А' && c <= U'Я') return c + 0x20;
+    return c;
+}
+
 } // namespace
 
 PuntoDaemon::PuntoDaemon(DaemonConfig cfg) : cfg_(std::move(cfg)), layout_(cfg_) {
@@ -309,8 +318,8 @@ void PuntoDaemon::applyLayoutForWord(CharMapping::Layout typedLayout) {
     else if (typedLayout == CharMapping::Layout::English) { layout_.setRussian(); daemonSwitchedLayout_ = true; }
 }
 
-void PuntoDaemon::checkAutoSwitch(const std::string& word) {
-    if (tracker_.isCurrentTokenFrozen()) return;
+bool PuntoDaemon::checkAutoSwitch(const std::string& word, const std::string& boundaryUtf8) {
+    if (tracker_.isCurrentTokenFrozen()) return false;
 
     const std::u32string w32   = utf8_to_utf32(word);
     CharMapping::Layout layout = CharMapping::dominantLayout(w32);
@@ -328,7 +337,7 @@ void PuntoDaemon::checkAutoSwitch(const std::string& word) {
                 std::cerr << "punto-switcher-daemon: checkAutoSwitch skip (plausible RU word)\n"
                           << std::flush;
             }
-            return;
+            return false;
         }
     }
     if (layout == CharMapping::Layout::English && enRatio >= 0.85 && ruRatio <= 0.05) {
@@ -338,7 +347,7 @@ void PuntoDaemon::checkAutoSwitch(const std::string& word) {
                 std::cerr << "punto-switcher-daemon: checkAutoSwitch skip (plausible EN word)\n"
                           << std::flush;
             }
-            return;
+            return false;
         }
     }
 
@@ -353,21 +362,34 @@ void PuntoDaemon::checkAutoSwitch(const std::string& word) {
                   << (doSwitch ? "yes" : "no") << "\n"
                   << std::flush;
     }
-    if (!doSwitch) return;
+    if (!doSwitch) return false;
 
     std::string swapped = CharMapping::swapWord(word);
-    if (swapped == word) return;
+    if (swapped == word) return false;
 
     int wordCpCount = static_cast<int>(utf8_to_utf32(word).size());
 
     tracker_.undoPrevLayout         = layout;
     tracker_.undoOriginalTextUtf8   = word;
     tracker_.undoSwappedTextUtf8    = swapped;
-    tracker_.undoSwappedCpCount     = utf8_to_utf32(swapped).size();
+    const auto toLowerAscii = [](std::string s) {
+        for (char& ch : s) {
+            if (ch >= 'A' && ch <= 'Z') ch = static_cast<char>(ch + ('a' - 'A'));
+        }
+        return s;
+    };
+    const std::string swappedLower = toLowerAscii(swapped);
+    const bool urlSchemePrefix =
+        (layout == CharMapping::Layout::Russian)
+        && (swappedLower == "http:" || swappedLower == "https:" || swappedLower == "ftp:")
+        && boundaryUtf8 == ".";
+    if (urlSchemePrefix) pendingUrlSecondSlash_ = true;
+
+    tracker_.undoSwappedCpCount     = utf8_to_utf32(urlSchemePrefix ? (swapped + "/") : swapped).size();
 
     InternalGuard g(&tracker_);
     tapBackspaces(wordCpCount);
-    if (!injectText(swapped)) {
+    if (!injectText(urlSchemePrefix ? (swapped + "/") : swapped)) {
         std::cerr << "punto-switcher-daemon: inject failed (wtype + wl-copy) — restoring word\n";
         if (!injectText(word)) {
             std::cerr << "punto-switcher-daemon: could not restore word after failed inject\n";
@@ -376,7 +398,7 @@ void PuntoDaemon::checkAutoSwitch(const std::string& word) {
         tracker_.undoOriginalTextUtf8.reset();
         tracker_.undoSwappedTextUtf8.reset();
         tracker_.undoSwappedCpCount = 0;
-        return;
+        return false;
     }
     tracker_.freezeCurrentToken();
     // Update wordBuffer to the swapped text so that the upcoming tracker_.onBoundary()
@@ -384,10 +406,11 @@ void PuntoDaemon::checkAutoSwitch(const std::string& word) {
     // Without this, lastWord stays "ghbdtn" (the original), and a subsequent manual Alt+'
     // would swap "ghbdtn" → "привет" again — a visual no-op that deletes the trailing space.
     // With the fix, lastWord = "привет" and Alt+' correctly reverts to "ghbdtn".
-    tracker_.wordBuffer = swapped;
+    tracker_.wordBuffer = urlSchemePrefix ? (swapped + "/") : swapped;
 
     if (layout == CharMapping::Layout::Russian) { layout_.setEnglish(); daemonSwitchedLayout_ = true; }
     else if (layout == CharMapping::Layout::English) { layout_.setRussian(); daemonSwitchedLayout_ = true; }
+    return urlSchemePrefix;
 }
 
 bool PuntoDaemon::doSwapLastWord() {
@@ -723,14 +746,36 @@ void PuntoDaemon::processEvent(const input_event& ev) {
                 std::cerr << "punto-switcher-daemon: word boundary buf=\"" << tracker_.wordBuffer << "\"\n"
                           << std::flush;
             }
+            bool consumeBoundary = false;
+            if (pendingUrlSecondSlash_ && (utf8 == "." || utf8 == "/")) {
+                // Second boundary in patterns like "реезыЖ..": make it '/' and swallow.
+                // We also inject explicitly, because returning early alone only prevents forwarding.
+                pendingUrlSecondSlash_ = false;
+                tracker_.onBoundary("/");
+                (void)injectText("/");
+                return;
+            }
             if (!tracker_.wordBuffer.empty() && !tracker_.isCurrentTokenFrozen())
-                checkAutoSwitch(tracker_.wordBuffer);
-            tracker_.onBoundary(utf8);
+                consumeBoundary = checkAutoSwitch(tracker_.wordBuffer, utf8);
+            tracker_.onBoundary(consumeBoundary ? std::string("/") : utf8);
+            if (consumeBoundary) return;
         } else {
+            pendingUrlSecondSlash_ = false;
             if (puntoDebugEnabled()) {
                 std::cerr << "punto-switcher-daemon: key utf8=\"" << utf8 << "\" evcode=" << code
                           << " val=" << val << "\n"
                           << std::flush;
+            }
+            // Guard against occasional stale uppercase decode right after hotkeys/layout races:
+            // when Shift is not physically held and CapsLock is inactive, normalize letters to lower.
+            const bool shiftDown = keyState_[KEY_LEFTSHIFT] || keyState_[KEY_RIGHTSHIFT];
+            const bool capsOn = xkb_state_mod_name_is_active(xkbState_, "Lock", XKB_STATE_MODS_EFFECTIVE) > 0;
+            if (!shiftDown && !capsOn && u32.size() == 1) {
+                char32_t c = u32[0];
+                if (isRuUpperLetter(c) || isEnUpperLetter(c)) {
+                    u32[0] = toLowerLetter(c);
+                    utf8 = utf32_to_utf8(u32);
+                }
             }
             tracker_.addChar(utf8);
         }

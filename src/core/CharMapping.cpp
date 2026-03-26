@@ -38,6 +38,30 @@ static char32_t ruLower(char32_t upper) {
     return upper;
 }
 
+static char32_t ruUpperPunctToEnShift(char32_t c) {
+    switch (c) {
+        case U'Х': return U'{';
+        case U'Ъ': return U'}';
+        case U'Ж': return U':';
+        case U'Э': return U'"';
+        case U'Б': return U'<';
+        case U'Ю': return U'>';
+        default:   return 0;
+    }
+}
+
+static char32_t enShiftToRuUpper(char32_t c) {
+    switch (c) {
+        case U'{': return U'Х';
+        case U'}': return U'Ъ';
+        case U':': return U'Ж';
+        case U'"': return U'Э';
+        case U'<': return U'Б';
+        case U'>': return U'Ю';
+        default:   return 0;
+    }
+}
+
 const std::unordered_map<char32_t, char32_t>& CharMapping::ruToEnLower() {
     static std::unordered_map<char32_t, char32_t> m = []() {
         std::unordered_map<char32_t, char32_t> tmp;
@@ -64,6 +88,14 @@ char32_t CharMapping::swapChar(char32_t c) {
     if (c == U'~') return U'Ё';
     if (c == U'ё') return U'`';
     if (c == U'`') return U'ё';
+    // Slash key on standard JCUKEN:
+    // RU '.' is the same physical key as EN '/'.
+    if (c == U'.') return U'/';
+    if (c == U'/') return U'.';
+
+    // Shifted punctuation on Russian layout (uppercase non-letters) ↔ shifted ASCII
+    if (char32_t shifted = ruUpperPunctToEnShift(c); shifted != 0) return shifted;
+    if (char32_t ruUpper = enShiftToRuUpper(c); ruUpper != 0) return ruUpper;
 
     // --- Russian → English ---
     // lowercase Russian

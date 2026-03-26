@@ -49,6 +49,48 @@ static const std::unordered_set<std::u32string>& enBigrams() {
     return s;
 }
 
+static std::u32string toLowerBasic(const std::u32string& s) {
+    std::u32string out;
+    out.reserve(s.size());
+    for (char32_t c : s) {
+        if (c >= U'А' && c <= U'Я') out.push_back(c + 0x20);
+        else if (c == U'Ё') out.push_back(U'ё');
+        else if (c >= U'A' && c <= U'Z') out.push_back(c + 32);
+        else out.push_back(c);
+    }
+    return out;
+}
+
+// Borrowed from common Punto-like switchers: force-switch obvious "technical" ASCII tokens
+// (http/https/www/domain suffixes) even when bigram score is inconclusive.
+static bool looksLikeAsciiTechToken(const std::u32string& s) {
+    std::u32string lower = toLowerBasic(s);
+
+    int enLetters = 0;
+    int ruLetters = 0;
+    for (char32_t c : lower) {
+        if (CharMapping::isEnglish(c)) ++enLetters;
+        else if (CharMapping::isRussian(c)) ++ruLetters;
+    }
+    if (ruLetters > 0 || enLetters < 4) return false;
+
+    auto contains = [&](const char32_t* needle) {
+        return lower.find(needle) != std::u32string::npos;
+    };
+
+    if (contains(U"http") || contains(U"https") || contains(U"www") || contains(U"ftp")
+        || contains(U"ssh") || contains(U"git"))
+        return true;
+
+    if (contains(U"://")) return true;
+
+    if (contains(U".com") || contains(U".org") || contains(U".net") || contains(U".io")
+        || contains(U".dev") || contains(U".ai") || contains(U".ru"))
+        return true;
+
+    return false;
+}
+
 // ---------------------------------------------------------------------------
 // bigramScore
 // ---------------------------------------------------------------------------
@@ -97,10 +139,6 @@ bool AutoSwitchHeuristic::isGuarded(const std::u32string& word) {
     for (size_t i = 0; i + 2 < word.size(); ++i)
         if (word[i] == U':' && word[i+1] == U'/' && word[i+2] == U'/') return true;
 
-    // Consecutive dots → domain-like
-    for (size_t i = 0; i + 1 < word.size(); ++i)
-        if (word[i] == U'.' && word[i+1] == U'.') return true;
-
     return false;
 }
 
@@ -133,6 +171,10 @@ bool AutoSwitchHeuristic::shouldSwitch(const std::string& word,
 
     // Swap the word to the other layout
     std::u32string swapped = CharMapping::swapWord(w32);
+    // Technical ASCII token heuristic (URLs/repos/protocol-like strings).
+    if (effective == CharMapping::Layout::Russian && looksLikeAsciiTechToken(swapped))
+        return true;
+
     CharMapping::Layout otherLayout = (effective == CharMapping::Layout::Russian)
                                        ? CharMapping::Layout::English
                                        : CharMapping::Layout::Russian;

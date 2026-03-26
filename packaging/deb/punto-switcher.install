@@ -1,0 +1,2 @@
+src/daemon/punto-switcher.desktop etc/xdg/autostart/
+src/daemon/70-punto-switcher-uinput.rules usr/lib/udev/rules.d/

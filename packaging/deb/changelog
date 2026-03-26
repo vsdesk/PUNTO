@@ -1,3 +1,66 @@
+punto-switcher (1.0.0-66) unstable; urgency=medium
+
+  * Fix: in RU->EN URL helper (http/https/ftp), handle second ".." boundary robustly.
+    When expecting the second slash, swallow boundary '.' or '/' and inject '/' so
+    "реезыЖ.." becomes "https://".
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 26 Mar 2026 23:00:00 +0000
+
+punto-switcher (1.0.0-65) unstable; urgency=medium
+
+  * Stabilize two regressions:
+    - URL correction after autoswitch: handle second dot in ".." as slash and consume it,
+      fixing "реезыЖ.." -> "https://".
+    - reduce sporadic unintended uppercase by normalizing decoded single letters to lowercase
+      when Shift is not held and CapsLock is off.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 26 Mar 2026 22:30:00 +0000
+
+punto-switcher (1.0.0-64) unstable; urgency=medium
+
+  * Revert aggressive manual case-template normalization for Alt+' (it caused
+    unintended all-caps conversions in some paths).
+  * Auto-switch URL helper: when RU->EN conversion yields "http:"/"https:"/"ftp:"
+    and boundary key is '.', inject '/' immediately and consume that boundary key.
+    This fixes "реезыЖ.." -> "https://" in practice.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 26 Mar 2026 22:00:00 +0000
+
+punto-switcher (1.0.0-63) unstable; urgency=medium
+
+  * Manual swap (Alt+'): stabilize output case by applying source word case template
+    (lower/title/UPPER) to swapped text before injection. Prevents occasional unexpected
+    all-caps conversion while preserving intentional caps.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 26 Mar 2026 21:30:00 +0000
+
+punto-switcher (1.0.0-62) unstable; urgency=medium
+
+  * CharMapping: map RU '.' <-> EN '/' as physical key pair (JCUKEN/US) so
+    mistyped protocol tokens convert correctly, e.g. "реезыЖ.." -> "https://"
+    in autoswitch flow.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 26 Mar 2026 21:00:00 +0000
+
+punto-switcher (1.0.0-61) unstable; urgency=medium
+
+  * Auto-switch/mapper tuning inspired by Punto-like switchers:
+    - add shifted punctuation mapping for RU<->EN (Ж<->:, Э<->", Х<->{, Ъ<->}, Б<-><, Ю<->>)
+      so tokens like "реезыЖ" convert to "https:" correctly.
+    - add heuristic override for obvious ASCII technical tokens (http/https/www/ftp/ssh/git,
+      common TLD markers) when typed in RU layout and bigram confidence is inconclusive.
+    - relax overly aggressive ".." guard in heuristic.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 26 Mar 2026 20:00:00 +0000
+
+punto-switcher (1.0.0-60) unstable; urgency=medium
+
+  * Revert clipboard post-processing (wl-copy --clear, paste-once, Klipper D-Bus restore):
+    that path cleared or rewrote the buffer before the target finished pasting, breaking
+    replacement in the focused app.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 26 Mar 2026 18:00:00 +0000
+
 punto-switcher (1.0.0-57) unstable; urgency=medium
 
   * PuntoDaemon: make Alt+' hotkey toggle reliably by preserving tracker_.lastWord

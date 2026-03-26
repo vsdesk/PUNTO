@@ -1,1 +1,2 @@
-3:CharMappingChar.UppercaseRuToEn
+17:CharMappingWord.ShiftPunctuationRoundTrip
+51:Heuristic.MistypedHttpsOnRussianLayoutSwitches

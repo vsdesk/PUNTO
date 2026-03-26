@@ -55,6 +55,7 @@ private:
     // the old layout and put wrong characters in wordBuffer, e.g. 'п' instead of 'g').
     bool onlyModifiersSinceNormalKey_ = false;
     bool pendingLayoutRefresh_        = false;
+    bool pendingUrlSecondSlash_       = false;
     int  lastKnownLayoutIndex_        = -1;
     // Set to true when the daemon itself calls setEnglish()/setRussian() so that the
     // layout-change detection in processEvent does NOT reset the tracker (which would
@@ -77,7 +78,8 @@ private:
     void doToggleAutoSwitch();
     bool doUndoLast();
 
-    void checkAutoSwitch(const std::string& word);
+    // Returns true when caller should consume (not forward) current boundary key event.
+    bool checkAutoSwitch(const std::string& word, const std::string& boundaryUtf8);
 
     void tapBackspaces(int count);
     void applyLayoutForWord(CharMapping::Layout typedLayout);

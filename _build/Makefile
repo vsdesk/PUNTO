@@ -569,45 +569,6 @@ punto-core/fast:
 .PHONY : punto-core/fast
 
 #=============================================================================
-# Target rules for targets named generate-desktop-file
-
-# Build rule for target.
-generate-desktop-file: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 generate-desktop-file
-.PHONY : generate-desktop-file
-
-# fast build rule for target.
-generate-desktop-file/fast:
-	$(MAKE) $(MAKESILENT) -f src/engine/CMakeFiles/generate-desktop-file.dir/build.make src/engine/CMakeFiles/generate-desktop-file.dir/build
-.PHONY : generate-desktop-file/fast
-
-#=============================================================================
-# Target rules for targets named translation-file
-
-# Build rule for target.
-translation-file: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 translation-file
-.PHONY : translation-file
-
-# fast build rule for target.
-translation-file/fast:
-	$(MAKE) $(MAKESILENT) -f src/engine/CMakeFiles/translation-file.dir/build.make src/engine/CMakeFiles/translation-file.dir/build
-.PHONY : translation-file/fast
-
-#=============================================================================
-# Target rules for targets named punto-switcher-engine
-
-# Build rule for target.
-punto-switcher-engine: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 punto-switcher-engine
-.PHONY : punto-switcher-engine
-
-# fast build rule for target.
-punto-switcher-engine/fast:
-	$(MAKE) $(MAKESILENT) -f src/engine/CMakeFiles/punto-switcher-engine.dir/build.make src/engine/CMakeFiles/punto-switcher-engine.dir/build
-.PHONY : punto-switcher-engine/fast
-
-#=============================================================================
 # Target rules for targets named punto-switcher-config
 
 # Build rule for target.
@@ -645,6 +606,19 @@ punto-switcher-config_autogen: cmake_check_build_system
 punto-switcher-config_autogen/fast:
 	$(MAKE) $(MAKESILENT) -f src/gui/CMakeFiles/punto-switcher-config_autogen.dir/build.make src/gui/CMakeFiles/punto-switcher-config_autogen.dir/build
 .PHONY : punto-switcher-config_autogen/fast
+
+#=============================================================================
+# Target rules for targets named punto-switcher-daemon
+
+# Build rule for target.
+punto-switcher-daemon: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 punto-switcher-daemon
+.PHONY : punto-switcher-daemon
+
+# fast build rule for target.
+punto-switcher-daemon/fast:
+	$(MAKE) $(MAKESILENT) -f src/daemon/CMakeFiles/punto-switcher-daemon.dir/build.make src/daemon/CMakeFiles/punto-switcher-daemon.dir/build
+.PHONY : punto-switcher-daemon/fast
 
 #=============================================================================
 # Target rules for targets named punto-tests
@@ -702,13 +676,11 @@ help:
 	@echo "... NightlySubmit"
 	@echo "... NightlyTest"
 	@echo "... NightlyUpdate"
-	@echo "... generate-desktop-file"
 	@echo "... punto-switcher-config_autogen"
 	@echo "... punto-switcher-config_autogen_timestamp_deps"
-	@echo "... translation-file"
 	@echo "... punto-core"
 	@echo "... punto-switcher-config"
-	@echo "... punto-switcher-engine"
+	@echo "... punto-switcher-daemon"
 	@echo "... punto-tests"
 .PHONY : help
 

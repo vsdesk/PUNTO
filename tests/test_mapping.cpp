@@ -80,12 +80,24 @@ TEST(CharMappingChar, UppercaseRuToEn) {
     EXPECT_EQ(CharMapping::swapChar(U'Я'), U'Z');
     // Ё → ~ (tilde = Shift+backtick), preserving case from the Ё key
     EXPECT_EQ(CharMapping::swapChar(U'Ё'), U'~');
+    EXPECT_EQ(CharMapping::swapChar(U'Ж'), U':');
+    EXPECT_EQ(CharMapping::swapChar(U'Э'), U'"');
+    EXPECT_EQ(CharMapping::swapChar(U'Х'), U'{');
+    EXPECT_EQ(CharMapping::swapChar(U'Ъ'), U'}');
+    EXPECT_EQ(CharMapping::swapChar(U'Б'), U'<');
+    EXPECT_EQ(CharMapping::swapChar(U'Ю'), U'>');
 }
 
 TEST(CharMappingChar, UppercaseEnToRu) {
     EXPECT_EQ(CharMapping::swapChar(U'Q'), U'Й');
     EXPECT_EQ(CharMapping::swapChar(U'A'), U'Ф');
     EXPECT_EQ(CharMapping::swapChar(U'Z'), U'Я');
+    EXPECT_EQ(CharMapping::swapChar(U':'), U'Ж');
+    EXPECT_EQ(CharMapping::swapChar(U'"'), U'Э');
+    EXPECT_EQ(CharMapping::swapChar(U'{'), U'Х');
+    EXPECT_EQ(CharMapping::swapChar(U'}'), U'Ъ');
+    EXPECT_EQ(CharMapping::swapChar(U'<'), U'Б');
+    EXPECT_EQ(CharMapping::swapChar(U'>'), U'Ю');
 }
 
 TEST(CharMappingChar, NoMappingPassthrough) {
@@ -178,6 +190,18 @@ TEST(CharMappingWord, NonLettersPassThrough) {
     // a→ф, b→и, c→с, space→space, digits→digits
     std::string result = CharMapping::swapWord(s);
     EXPECT_EQ(result, utf32_to_utf8(U"фис 123"));
+}
+
+TEST(CharMappingWord, ShiftPunctuationRoundTrip) {
+    // "реезыЖ" should become "https:" (Ж maps to ':' on shifted ';' key)
+    EXPECT_EQ(CharMapping::swapWord(std::string("реезыЖ")), "https:");
+    EXPECT_EQ(CharMapping::swapWord(std::string("https:")), std::string("реезыЖ"));
+}
+
+TEST(CharMappingWord, DotSlashPhysicalKeyRoundTrip) {
+    EXPECT_EQ(CharMapping::swapWord(std::string(".")), "/");
+    EXPECT_EQ(CharMapping::swapWord(std::string("/")), ".");
+    EXPECT_EQ(CharMapping::swapWord(std::string("реезыЖ.")), "https:/");
 }
 
 // ---------------------------------------------------------------------------

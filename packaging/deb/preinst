@@ -1,0 +1,18 @@
+#!/bin/sh
+# Before unpack: remove mistaken *directories* named like files (broken dh_install layouts).
+set -e
+case "$1" in
+    install|upgrade)
+        for d in \
+            /etc/xdg/autostart/punto-switcher-daemon.desktop \
+            /etc/xdg/autostart/punto-switcher.desktop \
+            /usr/lib/udev/rules.d/99-punto-switcher-uinput.rules \
+            /lib/udev/rules.d/99-punto-switcher-uinput.rules \
+            /usr/lib/udev/rules.d/70-punto-switcher-uinput.rules; do
+            if [ -d "$d" ]; then
+                rm -rf "$d"
+            fi
+        done
+        ;;
+esac
+exit 0

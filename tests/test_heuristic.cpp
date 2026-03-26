@@ -124,6 +124,10 @@ TEST(Guard, UrlGuarded) {
     EXPECT_TRUE(AutoSwitchHeuristic::isGuarded(U"http://example"));
 }
 
+TEST(Guard, DoubleDotsNotGuardedByItself) {
+    EXPECT_FALSE(AutoSwitchHeuristic::isGuarded(U"abc.."));
+}
+
 // ---------------------------------------------------------------------------
 // Confidence threshold sensitivity test
 // ---------------------------------------------------------------------------
@@ -142,6 +146,12 @@ TEST(Heuristic, LowThresholdAllowsSwitch) {
     AutoSwitchHeuristic h(cfg);
     // "ghbdtn" should still switch
     EXPECT_TRUE(h.shouldSwitch("ghbdtn", CharMapping::Layout::English));
+}
+
+TEST(Heuristic, MistypedHttpsOnRussianLayoutSwitches) {
+    AutoSwitchHeuristic h;
+    std::string mistyped = utf32_to_utf8(U"реезыЖ"); // physical keys for "https:"
+    EXPECT_TRUE(h.shouldSwitch(mistyped, CharMapping::Layout::Russian));
 }
 
 // ---------------------------------------------------------------------------

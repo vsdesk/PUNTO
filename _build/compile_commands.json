@@ -18,40 +18,76 @@
   "output": "src/core/CMakeFiles/punto-core.dir/AutoSwitchHeuristic.cpp.o"
 },
 {
-  "directory": "/home/i/PUNTO/_build/src/engine",
-  "command": "/usr/bin/c++ -Dpunto_switcher_engine_EXPORTS -I/home/i/PUNTO/src/core -isystem /usr/include/Fcitx5/Core -isystem /usr/include/Fcitx5/Config -isystem /usr/include/Fcitx5/Utils -O3 -DNDEBUG -std=c++20 -fPIC -O2 -D_FORTIFY_SOURCE=2 -fstack-protector-strong -o CMakeFiles/punto-switcher-engine.dir/PuntoModule.cpp.o -c /home/i/PUNTO/src/engine/PuntoModule.cpp",
-  "file": "/home/i/PUNTO/src/engine/PuntoModule.cpp",
-  "output": "src/engine/CMakeFiles/punto-switcher-engine.dir/PuntoModule.cpp.o"
-},
-{
-  "directory": "/home/i/PUNTO/_build/src/engine",
-  "command": "/usr/bin/c++ -Dpunto_switcher_engine_EXPORTS -I/home/i/PUNTO/src/core -isystem /usr/include/Fcitx5/Core -isystem /usr/include/Fcitx5/Config -isystem /usr/include/Fcitx5/Utils -O3 -DNDEBUG -std=c++20 -fPIC -O2 -D_FORTIFY_SOURCE=2 -fstack-protector-strong -o CMakeFiles/punto-switcher-engine.dir/InputTracker.cpp.o -c /home/i/PUNTO/src/engine/InputTracker.cpp",
-  "file": "/home/i/PUNTO/src/engine/InputTracker.cpp",
-  "output": "src/engine/CMakeFiles/punto-switcher-engine.dir/InputTracker.cpp.o"
-},
-{
   "directory": "/home/i/PUNTO/_build/src/gui",
-  "command": "/usr/bin/c++ -DQT_CORE_LIB -DQT_GUI_LIB -DQT_NO_DEBUG -DQT_WIDGETS_LIB -I/home/i/PUNTO/_build/src/gui/punto-switcher-config_autogen/include -isystem /usr/include/x86_64-linux-gnu/qt6/QtCore -isystem /usr/include/x86_64-linux-gnu/qt6 -isystem /usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -isystem /usr/include/x86_64-linux-gnu/qt6/QtWidgets -isystem /usr/include/x86_64-linux-gnu/qt6/QtGui -O3 -DNDEBUG -std=c++17 -O2 -D_FORTIFY_SOURCE=2 -fstack-protector-strong -o CMakeFiles/punto-switcher-config.dir/punto-switcher-config_autogen/mocs_compilation.cpp.o -c /home/i/PUNTO/_build/src/gui/punto-switcher-config_autogen/mocs_compilation.cpp",
+  "command": "/usr/bin/c++ -DPUNTO_WITH_FCITX=0 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_NO_DEBUG -DQT_WIDGETS_LIB -I/home/i/PUNTO/_build/src/gui/punto-switcher-config_autogen/include -isystem /usr/include/x86_64-linux-gnu/qt6/QtCore -isystem /usr/include/x86_64-linux-gnu/qt6 -isystem /usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -isystem /usr/include/x86_64-linux-gnu/qt6/QtWidgets -isystem /usr/include/x86_64-linux-gnu/qt6/QtGui -O3 -DNDEBUG -std=c++17 -O2 -D_FORTIFY_SOURCE=2 -fstack-protector-strong -o CMakeFiles/punto-switcher-config.dir/punto-switcher-config_autogen/mocs_compilation.cpp.o -c /home/i/PUNTO/_build/src/gui/punto-switcher-config_autogen/mocs_compilation.cpp",
   "file": "/home/i/PUNTO/_build/src/gui/punto-switcher-config_autogen/mocs_compilation.cpp",
   "output": "src/gui/CMakeFiles/punto-switcher-config.dir/punto-switcher-config_autogen/mocs_compilation.cpp.o"
 },
 {
   "directory": "/home/i/PUNTO/_build/src/gui",
-  "command": "/usr/bin/c++ -DQT_CORE_LIB -DQT_GUI_LIB -DQT_NO_DEBUG -DQT_WIDGETS_LIB -I/home/i/PUNTO/_build/src/gui/punto-switcher-config_autogen/include -isystem /usr/include/x86_64-linux-gnu/qt6/QtCore -isystem /usr/include/x86_64-linux-gnu/qt6 -isystem /usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -isystem /usr/include/x86_64-linux-gnu/qt6/QtWidgets -isystem /usr/include/x86_64-linux-gnu/qt6/QtGui -O3 -DNDEBUG -std=c++17 -O2 -D_FORTIFY_SOURCE=2 -fstack-protector-strong -o CMakeFiles/punto-switcher-config.dir/main.cpp.o -c /home/i/PUNTO/src/gui/main.cpp",
+  "command": "/usr/bin/c++ -DPUNTO_WITH_FCITX=0 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_NO_DEBUG -DQT_WIDGETS_LIB -I/home/i/PUNTO/_build/src/gui/punto-switcher-config_autogen/include -isystem /usr/include/x86_64-linux-gnu/qt6/QtCore -isystem /usr/include/x86_64-linux-gnu/qt6 -isystem /usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -isystem /usr/include/x86_64-linux-gnu/qt6/QtWidgets -isystem /usr/include/x86_64-linux-gnu/qt6/QtGui -O3 -DNDEBUG -std=c++17 -O2 -D_FORTIFY_SOURCE=2 -fstack-protector-strong -o CMakeFiles/punto-switcher-config.dir/main.cpp.o -c /home/i/PUNTO/src/gui/main.cpp",
   "file": "/home/i/PUNTO/src/gui/main.cpp",
   "output": "src/gui/CMakeFiles/punto-switcher-config.dir/main.cpp.o"
 },
 {
   "directory": "/home/i/PUNTO/_build/src/gui",
-  "command": "/usr/bin/c++ -DQT_CORE_LIB -DQT_GUI_LIB -DQT_NO_DEBUG -DQT_WIDGETS_LIB -I/home/i/PUNTO/_build/src/gui/punto-switcher-config_autogen/include -isystem /usr/include/x86_64-linux-gnu/qt6/QtCore -isystem /usr/include/x86_64-linux-gnu/qt6 -isystem /usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -isystem /usr/include/x86_64-linux-gnu/qt6/QtWidgets -isystem /usr/include/x86_64-linux-gnu/qt6/QtGui -O3 -DNDEBUG -std=c++17 -O2 -D_FORTIFY_SOURCE=2 -fstack-protector-strong -o CMakeFiles/punto-switcher-config.dir/MainWindow.cpp.o -c /home/i/PUNTO/src/gui/MainWindow.cpp",
+  "command": "/usr/bin/c++ -DPUNTO_WITH_FCITX=0 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_NO_DEBUG -DQT_WIDGETS_LIB -I/home/i/PUNTO/_build/src/gui/punto-switcher-config_autogen/include -isystem /usr/include/x86_64-linux-gnu/qt6/QtCore -isystem /usr/include/x86_64-linux-gnu/qt6 -isystem /usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -isystem /usr/include/x86_64-linux-gnu/qt6/QtWidgets -isystem /usr/include/x86_64-linux-gnu/qt6/QtGui -O3 -DNDEBUG -std=c++17 -O2 -D_FORTIFY_SOURCE=2 -fstack-protector-strong -o CMakeFiles/punto-switcher-config.dir/MainWindow.cpp.o -c /home/i/PUNTO/src/gui/MainWindow.cpp",
   "file": "/home/i/PUNTO/src/gui/MainWindow.cpp",
   "output": "src/gui/CMakeFiles/punto-switcher-config.dir/MainWindow.cpp.o"
 },
 {
   "directory": "/home/i/PUNTO/_build/src/gui",
-  "command": "/usr/bin/c++ -DQT_CORE_LIB -DQT_GUI_LIB -DQT_NO_DEBUG -DQT_WIDGETS_LIB -I/home/i/PUNTO/_build/src/gui/punto-switcher-config_autogen/include -isystem /usr/include/x86_64-linux-gnu/qt6/QtCore -isystem /usr/include/x86_64-linux-gnu/qt6 -isystem /usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -isystem /usr/include/x86_64-linux-gnu/qt6/QtWidgets -isystem /usr/include/x86_64-linux-gnu/qt6/QtGui -O3 -DNDEBUG -std=c++17 -O2 -D_FORTIFY_SOURCE=2 -fstack-protector-strong -o CMakeFiles/punto-switcher-config.dir/HotkeyEditor.cpp.o -c /home/i/PUNTO/src/gui/HotkeyEditor.cpp",
+  "command": "/usr/bin/c++ -DPUNTO_WITH_FCITX=0 -DQT_CORE_LIB -DQT_GUI_LIB -DQT_NO_DEBUG -DQT_WIDGETS_LIB -I/home/i/PUNTO/_build/src/gui/punto-switcher-config_autogen/include -isystem /usr/include/x86_64-linux-gnu/qt6/QtCore -isystem /usr/include/x86_64-linux-gnu/qt6 -isystem /usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -isystem /usr/include/x86_64-linux-gnu/qt6/QtWidgets -isystem /usr/include/x86_64-linux-gnu/qt6/QtGui -O3 -DNDEBUG -std=c++17 -O2 -D_FORTIFY_SOURCE=2 -fstack-protector-strong -o CMakeFiles/punto-switcher-config.dir/HotkeyEditor.cpp.o -c /home/i/PUNTO/src/gui/HotkeyEditor.cpp",
   "file": "/home/i/PUNTO/src/gui/HotkeyEditor.cpp",
   "output": "src/gui/CMakeFiles/punto-switcher-config.dir/HotkeyEditor.cpp.o"
+},
+{
+  "directory": "/home/i/PUNTO/_build/src/daemon",
+  "command": "/usr/bin/c++  -I/home/i/PUNTO/src -I/home/i/PUNTO/src/engine -I/usr/include/libevdev-1.0 -I/home/i/PUNTO/src/core -O3 -DNDEBUG -std=c++17 -O2 -D_FORTIFY_SOURCE=2 -fstack-protector-strong -o CMakeFiles/punto-switcher-daemon.dir/main.cpp.o -c /home/i/PUNTO/src/daemon/main.cpp",
+  "file": "/home/i/PUNTO/src/daemon/main.cpp",
+  "output": "src/daemon/CMakeFiles/punto-switcher-daemon.dir/main.cpp.o"
+},
+{
+  "directory": "/home/i/PUNTO/_build/src/daemon",
+  "command": "/usr/bin/c++  -I/home/i/PUNTO/src -I/home/i/PUNTO/src/engine -I/usr/include/libevdev-1.0 -I/home/i/PUNTO/src/core -O3 -DNDEBUG -std=c++17 -O2 -D_FORTIFY_SOURCE=2 -fstack-protector-strong -o CMakeFiles/punto-switcher-daemon.dir/SessionEnv.cpp.o -c /home/i/PUNTO/src/daemon/SessionEnv.cpp",
+  "file": "/home/i/PUNTO/src/daemon/SessionEnv.cpp",
+  "output": "src/daemon/CMakeFiles/punto-switcher-daemon.dir/SessionEnv.cpp.o"
+},
+{
+  "directory": "/home/i/PUNTO/_build/src/daemon",
+  "command": "/usr/bin/c++  -I/home/i/PUNTO/src -I/home/i/PUNTO/src/engine -I/usr/include/libevdev-1.0 -I/home/i/PUNTO/src/core -O3 -DNDEBUG -std=c++17 -O2 -D_FORTIFY_SOURCE=2 -fstack-protector-strong -o CMakeFiles/punto-switcher-daemon.dir/DaemonConfig.cpp.o -c /home/i/PUNTO/src/daemon/DaemonConfig.cpp",
+  "file": "/home/i/PUNTO/src/daemon/DaemonConfig.cpp",
+  "output": "src/daemon/CMakeFiles/punto-switcher-daemon.dir/DaemonConfig.cpp.o"
+},
+{
+  "directory": "/home/i/PUNTO/_build/src/daemon",
+  "command": "/usr/bin/c++  -I/home/i/PUNTO/src -I/home/i/PUNTO/src/engine -I/usr/include/libevdev-1.0 -I/home/i/PUNTO/src/core -O3 -DNDEBUG -std=c++17 -O2 -D_FORTIFY_SOURCE=2 -fstack-protector-strong -o CMakeFiles/punto-switcher-daemon.dir/EvdevUinput.cpp.o -c /home/i/PUNTO/src/daemon/EvdevUinput.cpp",
+  "file": "/home/i/PUNTO/src/daemon/EvdevUinput.cpp",
+  "output": "src/daemon/CMakeFiles/punto-switcher-daemon.dir/EvdevUinput.cpp.o"
+},
+{
+  "directory": "/home/i/PUNTO/_build/src/daemon",
+  "command": "/usr/bin/c++  -I/home/i/PUNTO/src -I/home/i/PUNTO/src/engine -I/usr/include/libevdev-1.0 -I/home/i/PUNTO/src/core -O3 -DNDEBUG -std=c++17 -O2 -D_FORTIFY_SOURCE=2 -fstack-protector-strong -o CMakeFiles/punto-switcher-daemon.dir/PuntoDaemon.cpp.o -c /home/i/PUNTO/src/daemon/PuntoDaemon.cpp",
+  "file": "/home/i/PUNTO/src/daemon/PuntoDaemon.cpp",
+  "output": "src/daemon/CMakeFiles/punto-switcher-daemon.dir/PuntoDaemon.cpp.o"
+},
+{
+  "directory": "/home/i/PUNTO/_build/src/daemon",
+  "command": "/usr/bin/c++  -I/home/i/PUNTO/src -I/home/i/PUNTO/src/engine -I/usr/include/libevdev-1.0 -I/home/i/PUNTO/src/core -O3 -DNDEBUG -std=c++17 -O2 -D_FORTIFY_SOURCE=2 -fstack-protector-strong -o CMakeFiles/punto-switcher-daemon.dir/TextInjector.cpp.o -c /home/i/PUNTO/src/daemon/TextInjector.cpp",
+  "file": "/home/i/PUNTO/src/daemon/TextInjector.cpp",
+  "output": "src/daemon/CMakeFiles/punto-switcher-daemon.dir/TextInjector.cpp.o"
+},
+{
+  "directory": "/home/i/PUNTO/_build/src/daemon",
+  "command": "/usr/bin/c++  -I/home/i/PUNTO/src -I/home/i/PUNTO/src/engine -I/usr/include/libevdev-1.0 -I/home/i/PUNTO/src/core -O3 -DNDEBUG -std=c++17 -O2 -D_FORTIFY_SOURCE=2 -fstack-protector-strong -o CMakeFiles/punto-switcher-daemon.dir/LayoutController.cpp.o -c /home/i/PUNTO/src/daemon/LayoutController.cpp",
+  "file": "/home/i/PUNTO/src/daemon/LayoutController.cpp",
+  "output": "src/daemon/CMakeFiles/punto-switcher-daemon.dir/LayoutController.cpp.o"
+},
+{
+  "directory": "/home/i/PUNTO/_build/src/daemon",
+  "command": "/usr/bin/c++  -I/home/i/PUNTO/src -I/home/i/PUNTO/src/engine -I/usr/include/libevdev-1.0 -I/home/i/PUNTO/src/core -O3 -DNDEBUG -std=c++17 -O2 -D_FORTIFY_SOURCE=2 -fstack-protector-strong -o CMakeFiles/punto-switcher-daemon.dir/__/engine/InputTracker.cpp.o -c /home/i/PUNTO/src/engine/InputTracker.cpp",
+  "file": "/home/i/PUNTO/src/engine/InputTracker.cpp",
+  "output": "src/daemon/CMakeFiles/punto-switcher-daemon.dir/__/engine/InputTracker.cpp.o"
 },
 {
   "directory": "/home/i/PUNTO/_build/tests",

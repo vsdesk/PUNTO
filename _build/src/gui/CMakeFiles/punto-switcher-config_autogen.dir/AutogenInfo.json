@@ -218,6 +218,9 @@
 		"/usr/share/cmake-3.31/Modules/FindPackageHandleStandardArgs.cmake",
 		"/usr/share/cmake-3.31/Modules/FindPackageMessage.cmake",
 		"/usr/share/cmake-3.31/Modules/FeatureSummary.cmake",
+		"/usr/lib/x86_64-linux-gnu/cmake/Qt6GuiPrivate/Qt6GuiPrivateTargets.cmake",
+		"/usr/lib/x86_64-linux-gnu/cmake/Qt6GuiPrivate/Qt6GuiPrivateAdditionalTargetInfo.cmake",
+		"/usr/lib/x86_64-linux-gnu/cmake/Qt6GuiPrivate/Qt6GuiPrivateVersionlessAliasTargets.cmake",
 		"/usr/lib/x86_64-linux-gnu/cmake/Qt6Gui/Qt6GuiVersionlessAliasTargets.cmake",
 		"/usr/lib/x86_64-linux-gnu/cmake/Qt6Widgets/Qt6WidgetsTargets.cmake",
 		"/usr/lib/x86_64-linux-gnu/cmake/Qt6Widgets/Qt6WidgetsTargets-none.cmake",
@@ -227,18 +230,9 @@
 		"/usr/lib/x86_64-linux-gnu/cmake/Qt6WidgetsPrivate/Qt6WidgetsPrivateConfig.cmake",
 		"/usr/share/cmake-3.31/Modules/CMakeFindDependencyMacro.cmake",
 		"/usr/lib/x86_64-linux-gnu/cmake/Qt6WidgetsPrivate/Qt6WidgetsPrivateDependencies.cmake",
-		"/usr/lib/x86_64-linux-gnu/cmake/Qt6GuiPrivate/Qt6GuiPrivateConfigVersion.cmake",
-		"/usr/lib/x86_64-linux-gnu/cmake/Qt6GuiPrivate/Qt6GuiPrivateConfigVersionImpl.cmake",
-		"/usr/lib/x86_64-linux-gnu/cmake/Qt6GuiPrivate/Qt6GuiPrivateConfig.cmake",
-		"/usr/share/cmake-3.31/Modules/CMakeFindDependencyMacro.cmake",
-		"/usr/lib/x86_64-linux-gnu/cmake/Qt6GuiPrivate/Qt6GuiPrivateDependencies.cmake",
-		"/usr/lib/x86_64-linux-gnu/cmake/Qt6/3rdparty/kwin/FindXKB.cmake",
-		"/usr/share/cmake-3.31/Modules/FindPkgConfig.cmake",
-		"/usr/share/cmake-3.31/Modules/FindPackageHandleStandardArgs.cmake",
-		"/usr/share/cmake-3.31/Modules/FindPackageMessage.cmake",
-		"/usr/share/cmake-3.31/Modules/FindPackageHandleStandardArgs.cmake",
-		"/usr/share/cmake-3.31/Modules/FindPackageMessage.cmake",
-		"/usr/share/cmake-3.31/Modules/FeatureSummary.cmake",
+		"/usr/lib/x86_64-linux-gnu/cmake/Qt6WidgetsPrivate/Qt6WidgetsPrivateTargets.cmake",
+		"/usr/lib/x86_64-linux-gnu/cmake/Qt6WidgetsPrivate/Qt6WidgetsPrivateAdditionalTargetInfo.cmake",
+		"/usr/lib/x86_64-linux-gnu/cmake/Qt6WidgetsPrivate/Qt6WidgetsPrivateVersionlessAliasTargets.cmake",
 		"/usr/lib/x86_64-linux-gnu/cmake/Qt6Widgets/Qt6WidgetsMacros.cmake",
 		"/usr/lib/x86_64-linux-gnu/cmake/Qt6Widgets/Qt6WidgetsPlugins.cmake",
 		"/usr/lib/x86_64-linux-gnu/cmake/Qt6Widgets/Qt6WidgetsVersionlessAliasTargets.cmake",
@@ -268,7 +262,14 @@
 	"HEADER_EXTENSIONS" : [ "h", "hh", "h++", "hm", "hpp", "hxx", "in", "txx" ],
 	"INCLUDE_DIR" : "/home/i/PUNTO/_build/src/gui/punto-switcher-config_autogen/include",
 	"MOC_COMPILATION_FILE" : "/home/i/PUNTO/_build/src/gui/punto-switcher-config_autogen/mocs_compilation.cpp",
-	"MOC_DEFINITIONS" : [ "QT_CORE_LIB", "QT_GUI_LIB", "QT_NO_DEBUG", "QT_WIDGETS_LIB" ],
+	"MOC_DEFINITIONS" : 
+	[
+		"PUNTO_WITH_FCITX=0",
+		"QT_CORE_LIB",
+		"QT_GUI_LIB",
+		"QT_NO_DEBUG",
+		"QT_WIDGETS_LIB"
+	],
 	"MOC_DEPEND_FILTERS" : 
 	[
 		[

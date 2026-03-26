@@ -455,9 +455,11 @@ punto-switcher-config_autogen/timestamp: \
 	/usr/include/x86_64-linux-gnu/qt6/QtWidgets/QPushButton \
 	/usr/include/x86_64-linux-gnu/qt6/QtWidgets/QSpinBox \
 	/usr/include/x86_64-linux-gnu/qt6/QtWidgets/QTabWidget \
+	/usr/include/x86_64-linux-gnu/qt6/QtWidgets/QTextEdit \
 	/usr/include/x86_64-linux-gnu/qt6/QtWidgets/QWidget \
 	/usr/include/x86_64-linux-gnu/qt6/QtWidgets/qabstractbutton.h \
 	/usr/include/x86_64-linux-gnu/qt6/QtWidgets/qabstractitemdelegate.h \
+	/usr/include/x86_64-linux-gnu/qt6/QtWidgets/qabstractscrollarea.h \
 	/usr/include/x86_64-linux-gnu/qt6/QtWidgets/qabstractslider.h \
 	/usr/include/x86_64-linux-gnu/qt6/QtWidgets/qabstractspinbox.h \
 	/usr/include/x86_64-linux-gnu/qt6/QtWidgets/qcheckbox.h \
@@ -475,6 +477,7 @@ punto-switcher-config_autogen/timestamp: \
 	/usr/include/x86_64-linux-gnu/qt6/QtWidgets/qstyleoption.h \
 	/usr/include/x86_64-linux-gnu/qt6/QtWidgets/qtabbar.h \
 	/usr/include/x86_64-linux-gnu/qt6/QtWidgets/qtabwidget.h \
+	/usr/include/x86_64-linux-gnu/qt6/QtWidgets/qtextedit.h \
 	/usr/include/x86_64-linux-gnu/qt6/QtWidgets/qtwidgets-config.h \
 	/usr/include/x86_64-linux-gnu/qt6/QtWidgets/qtwidgetsexports.h \
 	/usr/include/x86_64-linux-gnu/qt6/QtWidgets/qtwidgetsglobal.h \
@@ -586,10 +589,13 @@ punto-switcher-config_autogen/timestamp: \
 	/usr/lib/x86_64-linux-gnu/cmake/Qt6Gui/Qt6GuiTargets-none.cmake \
 	/usr/lib/x86_64-linux-gnu/cmake/Qt6Gui/Qt6GuiTargets.cmake \
 	/usr/lib/x86_64-linux-gnu/cmake/Qt6Gui/Qt6GuiVersionlessAliasTargets.cmake \
+	/usr/lib/x86_64-linux-gnu/cmake/Qt6GuiPrivate/Qt6GuiPrivateAdditionalTargetInfo.cmake \
 	/usr/lib/x86_64-linux-gnu/cmake/Qt6GuiPrivate/Qt6GuiPrivateConfig.cmake \
 	/usr/lib/x86_64-linux-gnu/cmake/Qt6GuiPrivate/Qt6GuiPrivateConfigVersion.cmake \
 	/usr/lib/x86_64-linux-gnu/cmake/Qt6GuiPrivate/Qt6GuiPrivateConfigVersionImpl.cmake \
 	/usr/lib/x86_64-linux-gnu/cmake/Qt6GuiPrivate/Qt6GuiPrivateDependencies.cmake \
+	/usr/lib/x86_64-linux-gnu/cmake/Qt6GuiPrivate/Qt6GuiPrivateTargets.cmake \
+	/usr/lib/x86_64-linux-gnu/cmake/Qt6GuiPrivate/Qt6GuiPrivateVersionlessAliasTargets.cmake \
 	/usr/lib/x86_64-linux-gnu/cmake/Qt6GuiTools/Qt6GuiToolsAdditionalTargetInfo.cmake \
 	/usr/lib/x86_64-linux-gnu/cmake/Qt6GuiTools/Qt6GuiToolsConfig.cmake \
 	/usr/lib/x86_64-linux-gnu/cmake/Qt6GuiTools/Qt6GuiToolsConfigVersion.cmake \
@@ -608,10 +614,13 @@ punto-switcher-config_autogen/timestamp: \
 	/usr/lib/x86_64-linux-gnu/cmake/Qt6Widgets/Qt6WidgetsTargets-none.cmake \
 	/usr/lib/x86_64-linux-gnu/cmake/Qt6Widgets/Qt6WidgetsTargets.cmake \
 	/usr/lib/x86_64-linux-gnu/cmake/Qt6Widgets/Qt6WidgetsVersionlessAliasTargets.cmake \
+	/usr/lib/x86_64-linux-gnu/cmake/Qt6WidgetsPrivate/Qt6WidgetsPrivateAdditionalTargetInfo.cmake \
 	/usr/lib/x86_64-linux-gnu/cmake/Qt6WidgetsPrivate/Qt6WidgetsPrivateConfig.cmake \
 	/usr/lib/x86_64-linux-gnu/cmake/Qt6WidgetsPrivate/Qt6WidgetsPrivateConfigVersion.cmake \
 	/usr/lib/x86_64-linux-gnu/cmake/Qt6WidgetsPrivate/Qt6WidgetsPrivateConfigVersionImpl.cmake \
 	/usr/lib/x86_64-linux-gnu/cmake/Qt6WidgetsPrivate/Qt6WidgetsPrivateDependencies.cmake \
+	/usr/lib/x86_64-linux-gnu/cmake/Qt6WidgetsPrivate/Qt6WidgetsPrivateTargets.cmake \
+	/usr/lib/x86_64-linux-gnu/cmake/Qt6WidgetsPrivate/Qt6WidgetsPrivateVersionlessAliasTargets.cmake \
 	/usr/lib/x86_64-linux-gnu/cmake/Qt6WidgetsTools/Qt6WidgetsToolsAdditionalTargetInfo.cmake \
 	/usr/lib/x86_64-linux-gnu/cmake/Qt6WidgetsTools/Qt6WidgetsToolsConfig.cmake \
 	/usr/lib/x86_64-linux-gnu/cmake/Qt6WidgetsTools/Qt6WidgetsToolsConfigVersion.cmake \
