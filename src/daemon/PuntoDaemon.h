@@ -56,6 +56,7 @@ private:
     bool onlyModifiersSinceNormalKey_ = false;
     bool pendingLayoutRefresh_        = false;
     bool pendingUrlSecondSlash_       = false;
+    bool capsLockOn_                  = false;
     int  lastKnownLayoutIndex_        = -1;
     // Set to true when the daemon itself calls setEnglish()/setRussian() so that the
     // layout-change detection in processEvent does NOT reset the tracker (which would

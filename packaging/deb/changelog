@@ -1,3 +1,46 @@
+punto-switcher (1.0.0-71) unstable; urgency=medium
+
+  * Uppercase stability: stop relying on xkb Lock modifier state (can desync after
+    long uptime/resume). Track CapsLock locally via KEY_CAPSLOCK press toggles and
+    use that for letter normalization guard.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 02:00:00 +0000
+
+punto-switcher (1.0.0-70) unstable; urgency=medium
+
+  * Deep-sleep/BT robustness: handle poll-level fd failure states
+    (POLLERR/POLLHUP/POLLNVAL). Previously daemon could stay alive but stop
+    receiving keys; now it triggers in-process device reinit.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 01:30:00 +0000
+
+punto-switcher (1.0.0-69) unstable; urgency=medium
+
+  * Robust device recovery without process exit:
+    - add EvdevUinput::shutdown() and in-daemon reinit path on device loss;
+    - on ENODEV/EIO/ENXIO, release grabs/uinput, clear runtime key state,
+      and reopen keyboards in-place (important for transient BT reconnects
+      even without full system suspend).
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 01:00:00 +0000
+
+punto-switcher (1.0.0-68) unstable; urgency=medium
+
+  * Sleep/resume robustness: if input device disappears (libevdev rc=-ENODEV/-EIO/-ENXIO),
+    daemon exits with failure so systemd (Restart=on-failure) restarts it and re-grabs
+    keyboards automatically.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 00:30:00 +0000
+
+punto-switcher (1.0.0-67) unstable; urgency=medium
+
+  * Fix root-daemon/user-GUI config mismatch: when daemon runs as root, resolve
+    config home from DBUS session uid (/run/user/<uid>/bus) and load/save
+    ~/.config/punto-switcher/daemon.ini for that user.
+    This restores reliable AutoSwitch ON/OFF behavior from GUI.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 00:00:00 +0000
+
 punto-switcher (1.0.0-66) unstable; urgency=medium
 
   * Fix: in RU->EN URL helper (http/https/ftp), handle second ".." boundary robustly.

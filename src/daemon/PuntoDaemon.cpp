@@ -615,6 +615,9 @@ void PuntoDaemon::processEvent(const input_event& ev) {
     if (val == 1 || val == 2) keyState_[code] = 1;
     else if (val == 0)
         keyState_[code] = 0;
+    if (code == KEY_CAPSLOCK && val == 1) {
+        capsLockOn_ = !capsLockOn_;
+    }
 
     if (val == 1) {
         if (matchHotkey(hkSwapLast_, code, val)) {
@@ -769,8 +772,7 @@ void PuntoDaemon::processEvent(const input_event& ev) {
             // Guard against occasional stale uppercase decode right after hotkeys/layout races:
             // when Shift is not physically held and CapsLock is inactive, normalize letters to lower.
             const bool shiftDown = keyState_[KEY_LEFTSHIFT] || keyState_[KEY_RIGHTSHIFT];
-            const bool capsOn = xkb_state_mod_name_is_active(xkbState_, "Lock", XKB_STATE_MODS_EFFECTIVE) > 0;
-            if (!shiftDown && !capsOn && u32.size() == 1) {
+            if (!shiftDown && !capsLockOn_ && u32.size() == 1) {
                 char32_t c = u32[0];
                 if (isRuUpperLetter(c) || isEnUpperLetter(c)) {
                     u32[0] = toLowerLetter(c);
@@ -812,9 +814,15 @@ int PuntoDaemon::run() {
                       "will not work. With sg(1), export it from your session before sg (see loginctl show-session).\n";
     }
 
-    const auto& devs = io_.devices();
-    std::vector<struct pollfd> pfds(devs.size());
     while (true) {
+        const auto& devs = io_.devices();
+        if (devs.empty()) {
+            std::cerr << "punto-switcher-daemon: no input devices opened, trying to reinitialize...\n";
+            ::usleep(500000);
+            if (!io_.init(cfg_.devicePath)) continue;
+        }
+        std::vector<struct pollfd> pfds(devs.size());
+        bool needReinitAfterDeviceLoss = false;
         for (size_t i = 0; i < devs.size(); ++i) {
             pfds[i].fd     = libevdev_get_fd(devs[i]);
             pfds[i].events = POLLIN;
@@ -822,6 +830,12 @@ int PuntoDaemon::run() {
         if (poll(pfds.data(), pfds.size(), -1) <= 0) continue;
 
         for (size_t i = 0; i < devs.size(); ++i) {
+            if (pfds[i].revents & (POLLERR | POLLHUP | POLLNVAL)) {
+                std::cerr << "punto-switcher-daemon: poll reports device error/hup (revents="
+                          << pfds[i].revents << "), reinitializing devices\n";
+                needReinitAfterDeviceLoss = true;
+                break;
+            }
             if (!(pfds[i].revents & POLLIN)) continue;
             libevdev* keyboard = devs[i];
             for (;;) {
@@ -829,6 +843,12 @@ int PuntoDaemon::run() {
                 int         rc = libevdev_next_event(keyboard, LIBEVDEV_READ_FLAG_NORMAL, &ev);
                 if (rc < 0) {
                     if (rc == -EAGAIN || rc == -EWOULDBLOCK) break;
+                    if (rc == -ENODEV || rc == -EIO || rc == -ENXIO) {
+                        std::cerr << "punto-switcher-daemon: input device became unavailable (rc=" << rc
+                                  << "), reinitializing devices\n";
+                        needReinitAfterDeviceLoss = true;
+                        break;
+                    }
                     if (puntoDebugEnabled()) {
                         std::cerr << "punto-switcher-daemon: libevdev_next_event rc=" << rc << "\n"
                                   << std::flush;
@@ -845,6 +865,21 @@ int PuntoDaemon::run() {
                 if (rc != LIBEVDEV_READ_STATUS_SUCCESS) break;
                 processEvent(ev);
             }
+            if (needReinitAfterDeviceLoss) break;
+        }
+        if (needReinitAfterDeviceLoss) {
+            io_.shutdown();
+            tracker_.reset();
+            keyState_.fill(0);
+            swallowed_.clear();
+            pendingLayoutRefresh_ = false;
+            onlyModifiersSinceNormalKey_ = false;
+            pendingUrlSecondSlash_ = false;
+            capsLockOn_ = false;
+            daemonSwitchedLayout_ = false;
+            ::usleep(500000);
+            (void)io_.init(cfg_.devicePath);
+            continue;
         }
     }
 

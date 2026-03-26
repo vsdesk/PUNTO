@@ -3,15 +3,44 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <pwd.h>
 #include <sstream>
+#include <unistd.h>
 #include <vector>
 
 namespace punto {
 
+static std::string detectSessionHomeForRoot() {
+    // When daemon runs as root, GUI still edits user config. Prefer the user home
+    // derived from DBUS_SESSION_BUS_ADDRESS (e.g. /run/user/1000/bus).
+    const char* dbus = std::getenv("DBUS_SESSION_BUS_ADDRESS");
+    if (!dbus) return {};
+    const std::string s(dbus);
+    const std::string marker = "/run/user/";
+    const size_t p = s.find(marker);
+    if (p == std::string::npos) return {};
+    size_t i = p + marker.size();
+    size_t j = i;
+    while (j < s.size() && s[j] >= '0' && s[j] <= '9') ++j;
+    if (j == i) return {};
+    uid_t uid = static_cast<uid_t>(std::strtoul(s.substr(i, j - i).c_str(), nullptr, 10));
+    if (uid == 0) return {};
+    struct passwd* pw = getpwuid(uid);
+    if (!pw || !pw->pw_dir || !pw->pw_dir[0]) return {};
+    return std::string(pw->pw_dir);
+}
+
 static std::string configPath() {
-    const char* home = std::getenv("HOME");
-    if (!home) return {};
-    return std::string(home) + "/.config/punto-switcher/daemon.ini";
+    std::string home;
+    if (geteuid() == 0) {
+        home = detectSessionHomeForRoot();
+    }
+    if (home.empty()) {
+        const char* envHome = std::getenv("HOME");
+        if (envHome && envHome[0]) home = envHome;
+    }
+    if (home.empty()) return {};
+    return home + "/.config/punto-switcher/daemon.ini";
 }
 
 static void trim(std::string& s) {

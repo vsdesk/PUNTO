@@ -142,6 +142,10 @@ static std::vector<std::string> findDefaultKeyboardPaths() {
 } // namespace
 
 EvdevUinput::~EvdevUinput() {
+    shutdown();
+}
+
+void EvdevUinput::shutdown() {
     for (libevdev* d : devs_) {
         if (!d) continue;
         libevdev_grab(d, LIBEVDEV_UNGRAB);
