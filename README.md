@@ -1,11 +1,14 @@
 # Punto Switcher for Linux/Wayland
 
 Автоматическое переключение раскладки **ru↔en** в стиле Punto Switcher для
-**Wayland** (KDE Plasma, GNOME, Sway и других DE) через **Fcitx5** IME.
+**Wayland** через **`punto-switcher-daemon`** (evdev/uinput) и GUI
+`punto-switcher-config`.
 
 ### Кому не подходит
 
-Если вам нужна **только встроенная клавиатура Plasma** (KDE) **без Fcitx5/IBus** — **этот репозиторий не решает задачу**: перехват и правка текста реализованы **только** как модуль Fcitx5. Параллельно держать «родной» переключатель раскладки KDE и отдельный IME обычно приводит к дублям индикаторов, рассинхрону в браузерах и проблемам с экранной клавиатурой KDE. В таком случае разумный путь — оставить чистый KDE (см. `scripts/restore-kde-keyboard-only.sh`) и не ставить этот пакет; Punto-подобное поведение на Wayland **без** участия IME здесь не предусмотрено.
+Если вам нельзя запускать daemon с доступом к `input/uinput`, этот репозиторий
+не подойдёт. Текущая рабочая реализация — именно `punto-switcher-daemon`
+(глобальные hotkeys и автосвитч через evdev/uinput), а не только IME-модуль.
 
 ---
 
@@ -13,11 +16,11 @@
 
 | Аспект | Выбор | Обоснование |
 |--------|-------|-------------|
-| IME/Engine | **Fcitx5 Module** (не Engine) | Работает поверх любого active input method (русская клавиатура, английская), не требует смены IM |
+| Input path | **daemon (evdev/uinput)** + fallback clipboard paste | Глобальные hotkeys/autoswitch в Wayland-приложениях без зависимости от surroundingText |
 | Qt версия | **Qt6 Widgets** | Доступен в Ubuntu 22.04+, Debian 12+, Fedora 37+; один dev-пакет |
 | Packaging deb | **debhelper 13** + `dpkg-buildpackage` | Нативный подход, корректный `${shlibs:Depends}` |
 | Packaging rpm | **rpmbuild** + `.spec` | Стандарт для Fedora/RHEL |
-| Build system | **CMake 3.20+** | Интегрируется с Fcitx5CMake и Qt6CMake |
+| Build system | **CMake 3.20+** | Интегрируется с Qt6 и системными libevdev/xkbcommon |
 | Testing | **GTest** | Стандарт для C++ |
 | Auto-switch | **Bigram-scoring heuristic** | Нет ML, нет словаря; top-50 биграм на язык |
 
@@ -28,16 +31,16 @@
 ```
 punto-switcher/
 ├── src/
-│   ├── core/                   # Переносимая логика (без Fcitx5/Qt зависимостей)
+│   ├── core/                   # Переносимая логика (без daemon/Qt зависимостей)
 │   │   ├── CharMapping.h/.cpp  # Таблица JCUKEN↔QWERTY + char-level swap
 │   │   ├── WordSwapper.h/.cpp  # Punto-style swapLastWord / swapSelection
 │   │   ├── AutoSwitchHeuristic.h/.cpp  # Детектор "неверной раскладки"
 │   │   └── Utf8Utils.h         # UTF-8↔UTF-32 без внешних зависимостей
-│   ├── engine/                 # Fcitx5 Module (shared library)
-│   │   ├── PuntoModule.h/.cpp  # Главный addon class
-│   │   ├── InputTracker.h/.cpp # Состояние per-InputContext
-│   │   └── conf/
-│   │       └── punto-switcher.conf  # Fcitx5 addon manifest
+│   ├── daemon/                 # Текущий runtime: evdev/uinput daemon
+│   │   ├── PuntoDaemon.h/.cpp  # Основная логика hotkeys/autoswitch/inject
+│   │   ├── EvdevUinput.h/.cpp  # Захват клавиатур + uinput forward/inject
+│   │   ├── LayoutController.*  # Синхронизация раскладки с KDE
+│   │   └── DaemonConfig.*      # ~/.config/punto-switcher/daemon.ini
 │   └── gui/                    # Qt6 конфигуратор
 │       ├── main.cpp
 │       ├── MainWindow.h/.cpp   # Главное окно (tabs: Hotkeys / Auto-Switch / Debug)
@@ -64,26 +67,23 @@ punto-switcher/
 
 ## Функции
 
-### A. Swap последнего слова (`swap_last_text`, default: `Alt+'`)
+### A. Swap последнего слова (default: `Alt+'`)
 
 Определяет "последнее слово" как последовательность символов до ближайшей
 левой границы слова (пробел, пунктуация, перевод строки). Гифен `-` и
 апостроф `'` считаются частью слова (аналогично Punto).
 
-**Алгоритм:**
-1. Читает `surroundingText()` Fcitx5 (text before cursor).
-2. Находит последнее слово назад от курсора.
-3. Вызывает `deleteSurroundingText(-N, N)` + `commitString(swapped)`.
-4. Сбрасывает `InputTracker` для текущего IC.
+**Алгоритм (daemon):**
+1. Ведёт `wordBuffer` из реальных key events.
+2. На hotkey удаляет слово через backspace (по codepoint count).
+3. Вставляет swapped-текст через `wtype` (или fallback `wl-copy + Ctrl+V`).
+4. Обновляет `lastWord`, чтобы повторное нажатие делало обратный swap (round-trip).
 
-**Защита от циклов:** после swap `InputTracker` сбрасывается — повторное
-нажатие снова читает surrounding text и делает обратный swap (round-trip).
+### B. Swap выделенного текста (default: `Alt+Shift+'`)
 
-### B. Swap выделенного текста (`swap_selection`, default: `Alt+Shift+'`)
-
-1. Читает `surroundingText().cursor()` и `.anchor()`.
-2. Если `cursor != anchor` — есть выделение: вырезает и вставляет swapped.
-3. **Fallback** (cursor == anchor): ведёт себя как `swap_last_text`.
+1. Делает `Ctrl+C` и читает clipboard (`wl-paste -n`).
+2. Если есть однотокенное выделение — вставляет swapped.
+3. Если выделения нет/не поддерживается — fallback к `swap_last`.
 
 **Ограничения selection под Wayland:**
 
@@ -93,19 +93,19 @@ punto-switcher/
 | GTK4 | ✅ работает |
 | GTK3 (XWayland) | ⚠️ может не предоставлять anchor ≠ cursor |
 | Electron (Wayland native) | ⚠️ частично; зависит от версии |
-| Electron (XWayland mode) | ❌ X11 не поддерживается нашим модулем |
+| Electron (XWayland mode) | ⚠️ зависит от поведения clipboard/hotkeys |
 | Konsole / terminal emulators | ⚠️ часто не реализуют text-input surrounding_text |
 
 При отсутствии selection срабатывает fallback `swap_last`.
 
-### C. Auto-switch (`toggle_auto_switch`, default: `Alt+Shift+A`)
+### C. Auto-switch (default: `Alt+Shift+A`)
 
 Автозамена срабатывает **только на границе слова** (space/enter/punctuation):
 
 ```
 Пользователь набрал: "ghbdtn " (= "привет" на EN-раскладке)
                             ^--- граница слова
-→ engine видит коммит пробела
+→ daemon видит boundary key
 → проверяет слово "ghbdtn"
 → bigramScore("ghbdtn", EN) = 0   (нет EN биграм)
    bigramScore("привет", RU) = X  (есть RU биграм)
@@ -146,16 +146,16 @@ punto-switcher/
 
 ## Hotkeys по умолчанию
 
-| Действие | Hotkey (Fcitx5 формат) | Изменяемый |
+| Действие | Hotkey (daemon.ini формат) | Изменяемый |
 |----------|------------------------|-----------|
 | Swap Last Word | `Alt+apostrophe` | ✅ GUI / config |
 | Swap Selection | `Alt+shift+apostrophe` | ✅ GUI / config |
 | Toggle Auto-Switch | `Alt+shift+a` | ✅ GUI / config |
 | Undo Last Switch | `Alt+shift+BackSpace` | ✅ GUI / config |
 
-**Конфликты:** если Fcitx5 перехватывает хоткей, но целевое приложение
-не возвращает управление (e.g. хоткей системный), модуль логирует `WARN`
-через `fcitx5_log`. Проверьте вывод `journalctl -t fcitx5`.
+**Конфликты:** если системный хоткей перехватывается раньше daemon
+(например, глобальный shortcut KWin), действие Punto не сработает.
+Проверяйте логи через `journalctl --user | grep -i punto-switcher-daemon`.
 
 ---
 
@@ -202,7 +202,7 @@ cmake >= 3.20, gcc/clang C++17
 ```bash
 sudo apt install \
   cmake build-essential pkg-config \
-  libfcitx5core-dev libfcitx5utils-dev libfcitx5config-dev \
+  libevdev-dev libxkbcommon-dev \
   qt6-base-dev extra-cmake-modules \
   libgtest-dev
 ```
@@ -211,8 +211,8 @@ sudo apt install \
 ```bash
 sudo dnf install \
   cmake gcc-c++ \
-  fcitx5-devel qt6-qtbase-devel \
-  extra-cmake-modules gtest-devel
+  libevdev-devel libxkbcommon-devel \
+  qt6-qtbase-devel extra-cmake-modules gtest-devel
 ```
 
 ### Сборка из исходников
@@ -307,63 +307,31 @@ rpmbuild -bb ~/rpmbuild/SPECS/punto-switcher.spec
 ### Ubuntu/Debian
 
 ```bash
-sudo dpkg -i punto-switcher_1.0.0-1_amd64.deb
+sudo dpkg -i dist/punto-switcher_*_amd64.deb
+sudo apt-get -f install -y
 ```
 
 ### Fedora
 
 ```bash
-sudo dnf install punto-switcher-1.0.0-1.fc41.x86_64.rpm
+sudo dnf install dist/punto-switcher-*.rpm
 ```
 
-### Активация в Fcitx5
+### Запуск daemon
 
-#### ⚠️ Обязательно для KDE Wayland
+После установки процесс стартует автоматически через desktop autostart.
+Проверка:
 
-Fcitx5 в KDE Wayland должен запускаться через **KWin** как виртуальная
-клавиатура — только тогда он использует нативный Wayland input method interface
-(текстовый ввод через compositor, а не через XIM/XWayland).
-
-1. Откройте **«Системные настройки» → «Клавиатура» → «Виртуальная клавиатура»**
-   (или найдите "Virtual Keyboard" в поиске настроек).
-2. Выберите **«Fcitx 5»** и нажмите «Применить».
-3. Выйдите из сессии и войдите снова (или перезапустите KWin).
-
-> Без этого шага Fcitx5 работает через XWayland (XIM), а не через Wayland
-> compositor — часть приложений (нативные Wayland) будут игнорировать ввод.
-> Подробнее: [fcitx-im.org/wiki/Using_Fcitx_5_on_Wayland#KDE_Plasma](https://fcitx-im.org/wiki/Using_Fcitx_5_on_Wayland#KDE_Plasma)
-
-Также рекомендуется отключить `im-config` (Debian/Ubuntu), если он включён:
 ```bash
-imsettings-switch none   # если установлен imsettings
-# или просто убедитесь что в ~/.profile нет строк export GTK_IM_MODULE / QT_IM_MODULE
+pgrep -af punto-switcher-daemon
 ```
 
-#### Активация модуля
+Ручное управление:
 
-1. Убедиться, что Fcitx5 запущен (в KDE Wayland — он запускается автоматически
-   как виртуальная клавиатура после шага выше; иначе вручную):
-   ```bash
-   fcitx5 -d
-   ```
-
-2. Перезапустить Fcitx5 (чтобы подхватил новый модуль):
-   ```bash
-   fcitx5-remote -r
-   # или
-   pkill fcitx5; fcitx5 -d
-   ```
-
-3. Модуль активируется **автоматически** (тип `Module`, `OnDemand=False`).
-   Проверка:
-   ```bash
-   fcitx5-remote -l | grep punto
-   # или
-   journalctl --user -t fcitx5 | grep -i punto
-   ```
-
-4. **Не нужно** добавлять как отдельный Input Method — модуль работает
-   поверх уже настроенных раскладок (русская + английская через fcitx5-keyboard).
+```bash
+punto-switcher-stop
+punto-switcher-daemon
+```
 
 ---
 
@@ -375,34 +343,59 @@ punto-switcher-config
 
 Или через меню приложений: **Settings → Punto Switcher Settings**.
 
-**Расположение конфига:**
+**Расположение конфига daemon:**
 ```
-~/.config/fcitx5/conf/punto-switcher.conf
+~/.config/punto-switcher/daemon.ini
 ```
 
-Файл в INI-формате, совместимом с Fcitx5:
+Файл в INI-формате:
 ```ini
-SwapLastText=Alt+apostrophe
-SwapSelection=Alt+shift+apostrophe
-ToggleAutoSwitch=Alt+shift+a
-UndoLastSwitch=Alt+shift+BackSpace
-AutoSwitch=true
-MinWordLength=3
-ConfidenceThreshold=0.15
-LogLevel=Warning
+[hotkeys]
+swap_last=Alt+apostrophe
+swap_selection=Alt+shift+apostrophe
+toggle_auto=Alt+shift+a
+undo=Alt+shift+BackSpace
+
+[autoswitch]
+enabled=true
+min_word_length=3
+confidence_threshold=0.15
+min_plausible_dominant_bigram_score=0.18
 ```
 
-После сохранения GUI автоматически вызывает `fcitx5-remote -r` (hot-reload).
-Если fcitx5 не запущен — перезапуск не требуется, конфиг будет прочитан
-при следующем старте.
+GUI сохраняет этот файл; daemon подхватывает его при старте
+и при переключении `Alt+Shift+A`.
+
+---
+
+## Диагностика daemon
+
+Быстрые команды:
+
+```bash
+# процесс жив?
+pgrep -af punto-switcher-daemon
+
+# остановить/запустить вручную
+punto-switcher-stop
+punto-switcher-daemon
+
+# посмотреть последние сообщения daemon
+journalctl --user --since "30 min ago" --no-pager | grep -i punto-switcher-daemon
+```
+
+Если после deep sleep/Bluetooth reconnect процесс жив, но реакции нет:
+- в актуальных версиях daemon сам делает reinit на `ENODEV/EIO/ENXIO` и
+  `POLLHUP/POLLERR/POLLNVAL`;
+- если не восстановился, перезапусти `punto-switcher-daemon` вручную и
+  проверь журнал.
 
 ---
 
 ## Manual QA Checklist (KDE Wayland)
 
 ### Подготовка
-- Установить пакет, перезапустить Fcitx5.
-- Добавить **English (US)** и **Russian** в Fcitx5 через `fcitx5-config-qt`.
+- Установить пакет и убедиться, что `punto-switcher-daemon` запущен.
 - Открыть Kate или любое Qt-приложение с текстовым полем.
 
 ### 1. Swap Last Word
@@ -438,13 +431,25 @@ LogLevel=Warning
 3. Нажать **Alt+Shift+A** снова — авто-свитч включается.
 4. ✅ Всё как ожидается.
 
+### 7. URL-кейс
+1. На RU раскладке набрать `реезыЖ..`.
+2. ✅ Ожидается: `https://`.
+
+### 8. Проверка случайного UPPERCASE
+1. Длительно печатать обычный текст с Alt+' и автосвитчем.
+2. ✅ Ожидается: нет внезапного перевода слов в UPPERCASE без нажатого Shift/CapsLock.
+
+### 9. Deep sleep / Bluetooth reconnect
+1. Увести ПК в глубокий сон и разбудить.
+2. На BT-клавиатуре набрать `ghbdtn `.
+3. ✅ Ожидается: автосвитч работает без ручного рестарта daemon.
+
 ---
 
 ## Известные ограничения
 
-1. **Selection под Wayland** — работает только если приложение реализует
-   `zwp_text_input_v3` с `surrounding_text`. Electron-приложения и некоторые
-   GTK3-приложения могут не поддерживать. Fallback: `swap_last_word`.
+1. **`wtype` может быть недоступен в compositor** — тогда daemon использует
+   fallback `wl-copy + Ctrl+V` (для терминалов поддержка ограничена).
 
 2. **Auto-switch без словаря** — эвристика bigram-scoring даёт ~80-90% precision
    на словах длиной ≥5 символов. Короткие слова (3-4 буквы) чаще дают
@@ -463,12 +468,12 @@ LogLevel=Warning
    обрабатывается. В режиме auto-switch: слова с Ё встречаются редко, поэтому
    влияние на false-positive минимально.
 
-6. **Hot-reload hotkeys** — Fcitx5 Module поддерживает `reloadConfig()`, которая
-   вызывается по `fcitx5-remote -r`. GUI делает это автоматически при Save.
-   Restart Fcitx5 не нужен.
+6. **Deep sleep / Bluetooth reconnect** — input fd могут отваливаться.
+   В актуальной версии daemon делает in-process reinit на `ENODEV/EIO/ENXIO`
+   и на poll-события `POLLHUP/POLLERR/POLLNVAL`.
 
 7. **Конфликты хоткеев** — если системный биндинг перехватывает хоткей раньше
-   Fcitx5 (напр. KWin global shortcut), хоткей Punto не сработает. Решение:
+   daemon (напр. KWin global shortcut), хоткей Punto не сработает. Решение:
    убрать конфликт в System Settings → Shortcuts, или сменить хоткей в GUI.
 
 ---
@@ -477,11 +482,12 @@ LogLevel=Warning
 
 | Пакет (Ubuntu) | Назначение |
 |----------------|-----------|
-| `libfcitx5core5` / `6` | Fcitx5 runtime (module loading) |
+| `libevdev2` | Чтение input events |
+| `libxkbcommon0` | Декод клавиш и раскладки |
+| `wl-clipboard` | fallback insert (`wl-copy`/`wl-paste`) |
 | `libqt6widgets6` | Qt6 GUI |
 | `libqt6core6` | Qt6 core |
 | `libqt6gui6` | Qt6 GUI rendering |
-| `fcitx5` | Daemon |
 
 Dev-либы (`*-dev`) в рантайм не попадают. `${shlibs:Depends}` в debhelper
 автоматически определяет точные символьные зависимости через `ldd`.
