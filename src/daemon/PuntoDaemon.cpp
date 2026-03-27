@@ -841,12 +841,25 @@ int PuntoDaemon::run() {
 
     auto lastTopologyProbe = std::chrono::steady_clock::now();
     int topologyMismatchStreak = 0;
+    int consecutiveNoDeviceInits = 0;
     while (true) {
         const auto& devs = io_.devices();
         if (devs.empty()) {
             std::cerr << "punto-switcher-daemon: no input devices opened, trying to reinitialize...\n";
             ::usleep(500000);
-            if (!io_.init(cfg_.devicePath)) continue;
+            if (!io_.init(cfg_.devicePath)) {
+                ++consecutiveNoDeviceInits;
+                // Let systemd restart from a clean process after prolonged no-device state.
+                if (consecutiveNoDeviceInits >= 20) {
+                    std::cerr << "punto-switcher-daemon: could not open any keyboard for 10s, exiting for systemd restart\n";
+                    teardownXkb();
+                    return 1;
+                }
+                continue;
+            }
+            consecutiveNoDeviceInits = 0;
+        } else {
+            consecutiveNoDeviceInits = 0;
         }
         std::vector<struct pollfd> pfds(devs.size());
         bool needReinitAfterDeviceLoss = false;

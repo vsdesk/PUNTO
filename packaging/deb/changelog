@@ -1,3 +1,12 @@
+punto-switcher (1.0.0-79) unstable; urgency=medium
+
+  * Add failover for prolonged "no keyboards opened" state:
+    after repeated init failures daemon now exits intentionally so systemd
+    restarts it from a clean process, avoiding infinite in-process reinit loop
+    where service stays "running" but non-functional.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 11:30:00 +0000
+
 punto-switcher (1.0.0-78) unstable; urgency=medium
 
   * Stabilize autostart by delegating daemon lifecycle to systemd --user:
