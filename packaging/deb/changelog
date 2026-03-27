@@ -1,3 +1,12 @@
+punto-switcher (1.0.0-78) unstable; urgency=medium
+
+  * Stabilize autostart by delegating daemon lifecycle to systemd --user:
+    autostart desktop entry now restarts a dedicated user service instead of
+    launching daemon directly, service is shipped in package and configured
+    with automatic restart for resilient session startup/runtime behavior.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 11:00:00 +0000
+
 punto-switcher (1.0.0-77) unstable; urgency=medium
 
   * Debounce keyboard-topology watchdog reinit:
