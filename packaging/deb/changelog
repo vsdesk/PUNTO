@@ -1,3 +1,64 @@
+punto-switcher (1.0.0-86) unstable; urgency=medium
+
+  * Speed up post-suspend recovery:
+    check keyboard topology every 3s (was 10s) and trigger stable-change
+    restart after 2 consecutive mismatches (was 3), reducing wake lag.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 17:05:00 +0000
+
+punto-switcher (1.0.0-85) unstable; urgency=medium
+
+  * Fix occasional letter-key loss (reported for Latin 'f'):
+    harden swallowed-key handling to consume releases only for configured
+    hotkey trigger keys; fail-open for any stale/non-hotkey swallowed state.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 16:20:00 +0000
+
+punto-switcher (1.0.0-84) unstable; urgency=medium
+
+  * Fix post-suspend keyboard reacquire for reconnecting devices:
+    topology watcher now treats newly appeared keyboard inodes as a real
+    topology change (not only disappeared ones), so daemon reopens devices
+    and starts handling BT keyboards that come back after wake.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 16:05:00 +0000
+
+punto-switcher (1.0.0-83) unstable; urgency=medium
+
+  * Implement robust suspend/resume recovery strategy:
+    detect resume by CLOCK_BOOTTIME jump and exit for clean systemd restart.
+  * Silence topology watchdog probing logs and avoid verbose device probing
+    during background change checks (keeps watchdog low-impact).
+  * Keep restart-on-device-error policy (POLLERR/HUP/ENODEV -> clean restart).
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 13:55:00 +0000
+
+punto-switcher (1.0.0-82) unstable; urgency=medium
+
+  * Improve post-suspend recovery strategy:
+    on stable topology mismatch or poll device error, exit daemon and let
+    systemd restart from a clean process instead of in-process reinit loops.
+    This reduces "service is running but not working" states after wake.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 13:45:00 +0000
+
+punto-switcher (1.0.0-81) unstable; urgency=medium
+
+  * Add resume self-heal watchdog in daemon main loop:
+    if input fds stay silent for a prolonged period, force evdev reinit.
+    This mitigates post-suspend "service is running but does not react"
+    without manual restart.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 12:30:00 +0000
+
+punto-switcher (1.0.0-80) unstable; urgency=medium
+
+  * Fix file-descriptor leak in keyboard device probing:
+    close probe fd after libevdev inspection. This prevents "Too many open
+    files" over time that caused daemon to lose all keyboards and stop working.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Thu, 27 Mar 2026 12:00:00 +0000
+
 punto-switcher (1.0.0-79) unstable; urgency=medium
 
   * Add failover for prolonged "no keyboards opened" state:

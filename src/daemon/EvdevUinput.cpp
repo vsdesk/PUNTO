@@ -56,6 +56,7 @@ static bool probePath(const std::string& path) {
     }
     const bool ok = looksLikePcKeyboard(dev);
     libevdev_free(dev);
+    ::close(fd);
     return ok;
 }
 
@@ -97,7 +98,7 @@ static std::string inodeKey(const std::string& p) {
            std::to_string(static_cast<unsigned long long>(st.st_ino));
 }
 
-static std::vector<std::string> findDefaultKeyboardPaths() {
+static std::vector<std::string> findDefaultKeyboardPaths(bool verbose = true) {
     std::vector<std::string> fromByPath;
     glob_t                   g;
     ::memset(&g, 0, sizeof(g));
@@ -129,14 +130,16 @@ static std::vector<std::string> findDefaultKeyboardPaths() {
         add(path);
     }
 
-    if (merged.size() > 1) {
+    if (verbose && merged.size() > 1) {
         std::cerr << "punto-switcher-daemon: opening ALL of these keyboards (grab each):";
         for (const auto& p : merged) std::cerr << ' ' << p;
         std::cerr << "\n";
     }
     if (!merged.empty()) return merged;
 
-    std::cerr << "punto-switcher-daemon: no suitable keyboard under /dev/input/by-path/*kbd* or event0..127\n";
+    if (verbose) {
+        std::cerr << "punto-switcher-daemon: no suitable keyboard under /dev/input/by-path/*kbd* or event0..127\n";
+    }
     return {};
 }
 
@@ -301,7 +304,7 @@ bool EvdevUinput::init(const std::string& userPath) {
 
 bool EvdevUinput::hasDeviceSetChanged(const std::string& userPath) const {
     std::vector<std::string> paths;
-    if (userPath.empty()) paths = findDefaultKeyboardPaths();
+    if (userPath.empty()) paths = findDefaultKeyboardPaths(false);
     else paths.push_back(userPath);
 
     std::set<std::string> wanted = inodeSetFromPaths(paths);
@@ -315,14 +318,12 @@ bool EvdevUinput::hasDeviceSetChanged(const std::string& userPath) const {
         have.insert(std::to_string(static_cast<unsigned long long>(st.st_dev)) + ":" +
                     std::to_string(static_cast<unsigned long long>(st.st_ino)));
     }
-    // Stable-change policy:
-    // - If one of currently opened devices disappeared/replaced -> reinit required.
-    // - If only new extra devices appeared (often transient event nodes), do not reinit
-    //   immediately to avoid oscillation loops that stall typing.
-    for (const auto& opened : have) {
-        if (!wanted.count(opened)) return true;
-    }
-    return false;
+    // Reinit when effective keyboard inode set differs.
+    // This catches both:
+    // - disappeared/replaced currently opened devices
+    // - newly appeared keyboards after suspend (e.g. BT keyboard reconnect)
+    // Debouncing is handled by caller (topologyMismatchStreak).
+    return wanted != have;
 }
 
 void EvdevUinput::forward(const input_event& ev) {

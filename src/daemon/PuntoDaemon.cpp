@@ -16,6 +16,7 @@
 #include <cerrno>
 #include <cstdio>
 #include <cstdlib>
+#include <ctime>
 #include <cstring>
 #include <iostream>
 #include <sys/wait.h>
@@ -30,6 +31,12 @@ namespace {
 static bool puntoDebugEnabled() {
     const char* p = std::getenv("PUNTO_DEBUG");
     return p && p[0] != '\0' && std::strcmp(p, "0") != 0;
+}
+
+static double monotonicBootSeconds() {
+    timespec ts{};
+    if (::clock_gettime(CLOCK_BOOTTIME, &ts) != 0) return 0.0;
+    return static_cast<double>(ts.tv_sec) + static_cast<double>(ts.tv_nsec) / 1e9;
 }
 
 static bool ieq(std::string a, std::string b) {
@@ -619,10 +626,20 @@ void PuntoDaemon::processEvent(const input_event& ev) {
         return;
     }
 
-    // Swallow paired release for consumed keys
+    const auto isConfiguredHotkeyTriggerCode = [&](unsigned int c) {
+        auto match = [c](const HotkeySpec& hk) {
+            return c == hk.keyCode || (hk.altKeyCode != 0 && c == hk.altKeyCode);
+        };
+        return match(hkSwapLast_) || match(hkSwapSel_) || match(hkToggle_) || match(hkUndo_);
+    };
+
+    // Swallow paired release only for actual configured hotkey trigger keys.
+    // If a non-hotkey code accidentally appears in swallowed_ (stale state), fail open.
     if (val == 0 && swallowed_.count(code)) {
         swallowed_.erase(code);
         keyState_[code] = 0;
+        if (isConfiguredHotkeyTriggerCode(code)) return;
+        io_.forward(ev);
         return;
     }
 
@@ -636,22 +653,22 @@ void PuntoDaemon::processEvent(const input_event& ev) {
 
     if (val == 1) {
         if (matchHotkey(hkSwapLast_, code, val)) {
-            swallowed_.insert(code);
+            if (isConfiguredHotkeyTriggerCode(code)) swallowed_.insert(code);
             doSwapLastWord();
             return;
         }
         if (matchHotkey(hkSwapSel_, code, val)) {
-            swallowed_.insert(code);
+            if (isConfiguredHotkeyTriggerCode(code)) swallowed_.insert(code);
             doSwapSelection();
             return;
         }
         if (matchHotkey(hkToggle_, code, val)) {
-            swallowed_.insert(code);
+            if (isConfiguredHotkeyTriggerCode(code)) swallowed_.insert(code);
             doToggleAutoSwitch();
             return;
         }
         if (matchHotkey(hkUndo_, code, val)) {
-            swallowed_.insert(code);
+            if (isConfiguredHotkeyTriggerCode(code)) swallowed_.insert(code);
             doUndoLast();
             return;
         }
@@ -839,7 +856,8 @@ int PuntoDaemon::run() {
                       "will not work. With sg(1), export it from your session before sg (see loginctl show-session).\n";
     }
 
-    auto lastTopologyProbe = std::chrono::steady_clock::now();
+    auto   lastTopologyProbe = std::chrono::steady_clock::now();
+    double lastBootSeconds   = monotonicBootSeconds();
     int topologyMismatchStreak = 0;
     int consecutiveNoDeviceInits = 0;
     while (true) {
@@ -868,25 +886,27 @@ int PuntoDaemon::run() {
             pfds[i].events = POLLIN;
         }
         if (poll(pfds.data(), pfds.size(), 2000) <= 0) {
+            const double nowBootSeconds = monotonicBootSeconds();
+            if (nowBootSeconds > 0.0 && lastBootSeconds > 0.0) {
+                const double jump = nowBootSeconds - lastBootSeconds;
+                if (jump > 8.0) {
+                    std::cerr << "punto-switcher-daemon: resume detected (boottime jump "
+                              << jump << "s), exiting for systemd restart\n";
+                    teardownXkb();
+                    return 1;
+                }
+            }
+            lastBootSeconds = nowBootSeconds;
+
             const auto now = std::chrono::steady_clock::now();
-            if ((now - lastTopologyProbe) > std::chrono::seconds(10)) {
+            if ((now - lastTopologyProbe) > std::chrono::seconds(3)) {
                 lastTopologyProbe = now;
                 if (io_.hasDeviceSetChanged(cfg_.devicePath)) {
                     ++topologyMismatchStreak;
-                    if (topologyMismatchStreak >= 3) {
-                        std::cerr << "punto-switcher-daemon: keyboard topology changed stably, reinitializing devices\n";
-                        io_.shutdown();
-                        tracker_.reset();
-                        keyState_.fill(0);
-                        swallowed_.clear();
-                        pendingLayoutRefresh_ = false;
-                        onlyModifiersSinceNormalKey_ = false;
-                        pendingUrlSecondSlash_ = false;
-                        capsLockOn_ = false;
-                        daemonSwitchedLayout_ = false;
-                        ::usleep(500000);
-                        (void)io_.init(cfg_.devicePath);
-                        topologyMismatchStreak = 0;
+                    if (topologyMismatchStreak >= 2) {
+                        std::cerr << "punto-switcher-daemon: keyboard topology changed stably, exiting for systemd restart\n";
+                        teardownXkb();
+                        return 1;
                     }
                 } else {
                     topologyMismatchStreak = 0;
@@ -898,7 +918,7 @@ int PuntoDaemon::run() {
         for (size_t i = 0; i < devs.size(); ++i) {
             if (pfds[i].revents & (POLLERR | POLLHUP | POLLNVAL)) {
                 std::cerr << "punto-switcher-daemon: poll reports device error/hup (revents="
-                          << pfds[i].revents << "), reinitializing devices\n";
+                          << pfds[i].revents << "), exiting for systemd restart\n";
                 needReinitAfterDeviceLoss = true;
                 break;
             }
@@ -911,7 +931,7 @@ int PuntoDaemon::run() {
                     if (rc == -EAGAIN || rc == -EWOULDBLOCK) break;
                     if (rc == -ENODEV || rc == -EIO || rc == -ENXIO) {
                         std::cerr << "punto-switcher-daemon: input device became unavailable (rc=" << rc
-                                  << "), reinitializing devices\n";
+                                  << "), exiting for systemd restart\n";
                         needReinitAfterDeviceLoss = true;
                         break;
                     }
@@ -934,19 +954,9 @@ int PuntoDaemon::run() {
             if (needReinitAfterDeviceLoss) break;
         }
         if (needReinitAfterDeviceLoss) {
-            io_.shutdown();
-            tracker_.reset();
-            keyState_.fill(0);
-            swallowed_.clear();
-            pendingLayoutRefresh_ = false;
-            onlyModifiersSinceNormalKey_ = false;
-            pendingUrlSecondSlash_ = false;
-            capsLockOn_ = false;
-            daemonSwitchedLayout_ = false;
-            ::usleep(500000);
-            (void)io_.init(cfg_.devicePath);
-            topologyMismatchStreak = 0;
-            continue;
+            std::cerr << "punto-switcher-daemon: device error persisted, exiting for systemd restart\n";
+            teardownXkb();
+            return 1;
         }
     }
 
