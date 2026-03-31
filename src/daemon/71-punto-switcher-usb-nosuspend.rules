@@ -1,0 +1,11 @@
+# Prevent Logitech keyboard (and its BT/Unifying receiver) from autosuspending.
+# Some keyboards lose the key-up/release during suspend/resume which results in
+# "held down" repeat events (e.g., browser keeps scrolling as if Down is held).
+#
+# Matches:
+# - Logitech Unifying receiver: 046d:c52b
+# - Realtek Bluetooth radio: 0bda:b85b
+#
+ACTION=="add|change", SUBSYSTEM=="usb", ATTR{idVendor}=="046d", ATTR{idProduct}=="c52b", TEST=="power/control", ATTR{power/control}="on"
+ACTION=="add|change", SUBSYSTEM=="usb", ATTR{idVendor}=="0bda", ATTR{idProduct}=="b85b", TEST=="power/control", ATTR{power/control}="on"
+

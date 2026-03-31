@@ -36,6 +36,22 @@ public:
 
     // Low-level: is this codepoint a word boundary?
     static bool isWordBoundary(char32_t c);
+
+    // For input tracking: punctuation keys like , . ; [ ] ` are boundaries between words,
+    // but on JCUKEN they share keys with RU letters (б/ю/ж/х/ъ/ё).
+    // - when the in-progress word is empty, treat them as the first character of the next word
+    //   (otherwise ",уква" never appears in wordBuffer);
+    // - when previous tracked char is a letter, treat them as word-internal too (e.g. "Lj,hsq").
+    // When \a pendingUrlSecondSlash is true (after "реезыЖ" → https:), the next "." must still
+    // be a boundary so "реезыЖ.." → https:// completes.
+    static bool isWordBoundaryForTracker(char32_t c, bool wordBufferEmpty,
+                                       bool prevIsLetter = false,
+                                       bool pendingUrlSecondSlash = false);
+
+    /// True when the next character is a Latin letter and the buffer's last letter is Cyrillic
+    /// (or the reverse). Callers should only finalize the token (onBoundary), not run
+    /// auto-switch + inject on this edge — short words caused inject/backspace loops.
+    static bool shouldSplitScriptBeforeAddChar(const std::string& wordBufferUtf8, char32_t ch);
 };
 
 } // namespace punto

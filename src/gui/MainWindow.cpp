@@ -156,6 +156,30 @@ void MainWindow::buildUI() {
     buildSetupTab(tabs);
 #endif
 
+#if !PUNTO_WITH_FCITX
+    // ---- Tab: Daemon (evdev service) ----
+    auto* daemonTab = new QWidget;
+    auto* daemonLayout = new QVBoxLayout(daemonTab);
+    daemonLayout->setSpacing(8);
+    daemonLayout->setContentsMargins(12, 12, 12, 12);
+
+    daemonPassthrough_ = new QCheckBox(tr("Passthrough mode (forward keys only)"), this);
+    daemonPassthrough_->setToolTip(
+        tr("Disables word tracking, auto-switch, and Punto hotkey handling — the daemon only grabs "
+           "the keyboard and forwards events (like typing without Punto).\n"
+           "Use when keys are missing or stuck; same as [daemon] passthrough=true in daemon.ini."));
+    daemonLayout->addWidget(daemonPassthrough_);
+
+    auto* daemonNote = new QLabel(
+        tr("<small><i>Normal mode keeps Punto features. Passthrough is for diagnosing or working "
+           "around compositor/uinput issues. Restart the user service after saving.</i></small>"));
+    daemonNote->setWordWrap(true);
+    daemonLayout->addWidget(daemonNote);
+    daemonLayout->addStretch();
+
+    tabs->addTab(daemonTab, tr("Daemon"));
+#endif
+
     // ---- Hotkeys ----
     auto* hotkeysTab = new QWidget;
     auto* hkLayout = new QFormLayout(hotkeysTab);
@@ -310,6 +334,12 @@ void MainWindow::loadConfig() {
         cfg.value("undo", DEFAULT_UNDO_SWITCH).toString());
     cfg.endGroup();
 
+    cfg.beginGroup("daemon");
+    if (daemonPassthrough_) {
+        daemonPassthrough_->setChecked(cfg.value("passthrough", false).toBool());
+    }
+    cfg.endGroup();
+
     cfg.beginGroup("autoswitch");
     autoEnabled_->setChecked(cfg.value("enabled", true).toBool());
     minWordLen_->setValue(cfg.value("min_word_length", DEFAULT_MIN_WORD_LEN).toInt());
@@ -338,6 +368,11 @@ void MainWindow::saveConfig() {
     cfg.setValue("swap_selection", hkSwapSelection_->fcitxString());
     cfg.setValue("toggle_auto",    hkToggleAuto_->fcitxString());
     cfg.setValue("undo",           hkUndoSwitch_->fcitxString());
+    cfg.endGroup();
+    cfg.beginGroup("daemon");
+    if (daemonPassthrough_) {
+        cfg.setValue("passthrough", daemonPassthrough_->isChecked());
+    }
     cfg.endGroup();
     cfg.beginGroup("autoswitch");
     cfg.setValue("enabled", autoEnabled_->isChecked());
@@ -389,6 +424,9 @@ void MainWindow::onRestoreDefaults() {
     autoEnabled_->setChecked(true);
     minWordLen_->setValue(DEFAULT_MIN_WORD_LEN);
     confidence_->setValue(DEFAULT_CONFIDENCE);
+#if !PUNTO_WITH_FCITX
+    if (daemonPassthrough_) daemonPassthrough_->setChecked(false);
+#endif
 #if PUNTO_WITH_FCITX
     logLevel_->setCurrentIndex(1);
 #endif
@@ -410,8 +448,10 @@ void MainWindow::onAbout() {
            "Source: https://github.com/your-org/punto-switcher"));
 }
 
-#if PUNTO_WITH_FCITX
 void MainWindow::refreshSetupStatus() {
+#if !PUNTO_WITH_FCITX
+    return;
+#else
     // Run 'punto-switcher-setup --status' and parse output
     auto* proc = new QProcess(this);
     proc->setProgram("punto-switcher-setup");
@@ -460,8 +500,8 @@ void MainWindow::refreshSetupStatus() {
             tr("<p><b style='color:red'>❌ punto-switcher-setup not found.</b> "
                "Try reinstalling the package.</p>"));
     }
-}
 #endif
+}
 
 void MainWindow::onRunSetup() {}
 void MainWindow::onUndoSetup() {}

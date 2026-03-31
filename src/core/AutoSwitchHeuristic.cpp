@@ -8,18 +8,32 @@
 namespace punto {
 
 // ---------------------------------------------------------------------------
-// Top-50 Russian bigrams (frequency corpus, lowercase)
+// Russian bigrams (frequency corpus + extensions, lowercase)
+// A tiny top-N list misses many normal words (e.g. "буква", "букву", "других"),
+// so wrong-layout Latin keeps a high accidental English bigram score ("er", "de")
+// while the Cyrillic target scores low — auto-switch never fires. Keep this list
+// broad; plausible-RU guard still blocks real Russian text from being swapped.
 // ---------------------------------------------------------------------------
 static const char32_t* RU_BIGRAMS_RAW[] = {
     U"ст", U"ен", U"но", U"на", U"ра", U"то", U"ко", U"ни",
+    U"эт", U"ту",
     U"та", U"ть", U"ро", U"по", U"во", U"ие", U"ли", U"ле",
     U"ит", U"ри", U"ин", U"ор", U"ве", U"те", U"де", U"ал",
     U"пр", U"ов", U"из", U"ат", U"ва", U"ме",
     U"ан", U"ло", U"ла", U"ос", U"лн", U"не", U"ка", U"им",
     U"ас", U"оп", U"ил", U"ки", U"ти", U"го", U"ог", U"да",
-    U"ам", U"из", U"ть", U"ер",
-    // Common pairs missing from the truncated top-50 (improves e.g. "привет", "ив", "ет")
+    U"ам", U"ер",
     U"ет", U"ив", U"вы", U"ми", U"об", U"до", U"ем", U"ой", U"ая",
+    // Common stems / clusters absent from the first block
+    U"бу", U"ук", U"кв", U"ву", U"сл", U"др", U"ру", U"уг", U"ги",
+    U"их", U"че", U"бы", U"мо", U"тв", U"ня", U"чт", U"зн", U"ны", U"гр",
+    U"се", U"ек", U"кт", U"тс", U"ся", U"бо", U"ом", U"нн", U"ку", U"ут",
+    U"тр", U"ма", U"яв", U"вн", U"яз", U"ей", U"щи", U"ши", U"жа",
+    U"ах", U"ох", U"ух", U"ыв", U"вь", U"ьн", U"нь", U"мя", U"ят", U"ик",
+    U"кс", U"ср", U"рт", U"ьо", U"йт", U"вл", U"рм",
+    U"ще", U"ещ", U"йс", U"йн", U"ье", U"ее", U"мь", U"ае", U"ео",
+    U"оа", U"уа", U"ио", U"оу", U"уе", U"еи", U"ию", U"юч", U"чн", U"нк",
+    U"кл", U"лс", U"см", U"мн", U"нт", U"тк", U"кр", U"рг", U"гн", U"нс",
 };
 
 // Top-50 English bigrams (frequency corpus, lowercase)
@@ -91,6 +105,40 @@ static bool looksLikeAsciiTechToken(const std::u32string& s) {
     return false;
 }
 
+// Length guard helper: count symbols that are letters OR map to a letter key on
+// the opposite layout (e.g. '\'' -> э, ';' -> ж, ',' -> б, '.' -> ю).
+static bool isLetterLikeForLengthGuard(char32_t c) {
+    if (CharMapping::isRussian(c) || CharMapping::isEnglish(c)) return true;
+    const char32_t mapped = CharMapping::swapChar(c);
+    return CharMapping::isRussian(mapped) || CharMapping::isEnglish(mapped);
+}
+
+static bool allRussianLetters(const std::u32string& s) {
+    for (char32_t c : s) {
+        if (!CharMapping::isRussian(c)) return false;
+    }
+    return !s.empty();
+}
+
+// Curated 1–2 letter Russian pronouns / particles / interjections that are otherwise
+// blocked by min_word_length (default 3). Compare with ё→е folded to one form.
+static bool isKnownShortRussianWord(const std::u32string& ru) {
+    if (ru.empty() || ru.size() > 2) return false;
+    std::u32string low = toLowerBasic(ru);
+    for (char32_t& c : low) {
+        if (c == U'ё') c = U'е';
+    }
+    static const std::unordered_set<std::u32string> one = {
+        U"я", U"а", U"у", U"о", U"к", U"в", U"с", U"и", U"ы",
+    };
+    static const std::unordered_set<std::u32string> two = {
+        U"мы", U"ты", U"он", U"вы", U"ее", U"эй", U"ну", U"да", U"не", U"ни",
+        U"ли", U"бы", U"же", U"ах", U"ох", U"эх", U"ой", U"ай", U"уф",
+    };
+    if (low.size() == 1) return one.count(low) != 0;
+    return two.count(low) != 0;
+}
+
 // ---------------------------------------------------------------------------
 // bigramScore
 // ---------------------------------------------------------------------------
@@ -126,6 +174,39 @@ double AutoSwitchHeuristic::bigramScore(const std::u32string& text,
 // ---------------------------------------------------------------------------
 // isGuarded — skip URLs, emails, numbers
 // ---------------------------------------------------------------------------
+bool AutoSwitchHeuristic::shouldBlockManualSwapPlausibleRussianOnRussianKeyboard(
+    const std::u32string& w32,
+    bool   keyboardLayoutIsRussian,
+    double minPlausibleDominantBigramScore,
+    double confidenceThreshold) {
+    if (!keyboardLayoutIsRussian) return false;
+    const double ruRatio = CharMapping::russianLetterRatio(w32);
+    const double enRatio = CharMapping::englishLetterRatio(w32);
+    if (CharMapping::dominantLayout(w32) != CharMapping::Layout::Russian) return false;
+    if (ruRatio < 0.85 || enRatio > 0.05) return false;
+    const double scO = bigramScore(w32, CharMapping::Layout::Russian);
+    const double scS = bigramScore(CharMapping::invertLayoutWord(w32), CharMapping::Layout::English);
+    return scO >= minPlausibleDominantBigramScore
+        && scS <= scO + confidenceThreshold;
+}
+
+bool AutoSwitchHeuristic::isEnLayoutJcukenLeadPunctWord(const std::u32string& w32) {
+    if (w32.size() < 2) return false;
+    const char32_t f = w32[0];
+    if (CharMapping::isEnglish(f) || CharMapping::isRussian(f)) return false;
+    const char32_t mapped = CharMapping::swapChar(f);
+    if (!CharMapping::isRussian(mapped)) return false;
+    for (size_t i = 1; i < w32.size(); ++i) {
+        if (!CharMapping::isEnglish(w32[i])) return false;
+    }
+    const std::u32string inv = CharMapping::invertLayoutWord(w32);
+    if (inv.empty()) return false;
+    for (char32_t c : inv) {
+        if (!CharMapping::isRussian(c)) return false;
+    }
+    return true;
+}
+
 bool AutoSwitchHeuristic::isGuarded(const std::u32string& word) {
     // Contains digit → skip
     for (char32_t c : word)
@@ -151,12 +232,10 @@ bool AutoSwitchHeuristic::shouldSwitch(const std::string& word,
 
     std::u32string w32 = utf8_to_utf32(word);
 
-    // Length guard (count letters only)
+    // Length guard (count letters + punctuation keys that map to letters).
     size_t letterCount = 0;
     for (char32_t c : w32)
-        if (CharMapping::isRussian(c) || CharMapping::isEnglish(c)) ++letterCount;
-
-    if (static_cast<int>(letterCount) < cfg_.minWordLength) return false;
+        if (isLetterLikeForLengthGuard(c)) ++letterCount;
 
     // URL/email/number guard
     if (isGuarded(w32)) return false;
@@ -169,11 +248,34 @@ bool AutoSwitchHeuristic::shouldSwitch(const std::string& word,
     if (effective == CharMapping::Layout::Unknown || effective == CharMapping::Layout::Mixed)
         return false; // can't determine what to swap to
 
-    // Swap the word to the other layout
-    std::u32string swapped = CharMapping::swapWord(w32);
+    // 1–2 character Russian pronouns / interjections (я, мы, ты, эй, …) typed on EN layout
+    // would otherwise fail min_word_length (default 3).
+    if (effective == CharMapping::Layout::English && letterCount >= 1 && letterCount <= 2
+        && static_cast<int>(letterCount) < cfg_.minWordLength) {
+        const std::u32string swappedShort = CharMapping::invertLayoutWord(w32);
+        if (!swappedShort.empty() && swappedShort.size() <= 2 && allRussianLetters(swappedShort)
+            && isKnownShortRussianWord(swappedShort)) {
+            return true;
+        }
+        return false;
+    }
+
+    if (static_cast<int>(letterCount) < cfg_.minWordLength) return false;
+
+    if (effective == CharMapping::Layout::English && isEnLayoutJcukenLeadPunctWord(w32)) {
+        return true;
+    }
+
+    // Invert layout for scoring (do not apply normalizeJcukenMixedPrefix here — that is a fix
+    // for display/swapWord, not part of bigram comparison on raw typed text).
+    std::u32string swapped = CharMapping::invertLayoutWord(w32);
     // Technical ASCII token heuristic (URLs/repos/protocol-like strings).
     if (effective == CharMapping::Layout::Russian && looksLikeAsciiTechToken(swapped))
         return true;
+    // If user already types a technical ASCII token in EN layout ("https", "www", ".com"),
+    // never auto-switch to RU.
+    if (effective == CharMapping::Layout::English && looksLikeAsciiTechToken(w32))
+        return false;
 
     CharMapping::Layout otherLayout = (effective == CharMapping::Layout::Russian)
                                        ? CharMapping::Layout::English
@@ -186,18 +288,24 @@ bool AutoSwitchHeuristic::shouldSwitch(const std::string& word,
     const double ruRatio = CharMapping::russianLetterRatio(w32);
     const double enRatio = CharMapping::englishLetterRatio(w32);
 
-    // Pure Cyrillic that already fits the Russian bigram model → do not swap (e.g. "привет",
-    // "Привет"). Pure Latin that fits English → do not swap ("hello"). Wrong-layout gibberish
-    // usually scores low in the dominant model and can still pass below.
+    // Dominant script looks "plausible" only if the *other* layout does not fit much better.
+    // Otherwise wrong-layout Latin with accidental EN bigrams ("er", "de" in ",erde") was
+    // blocked forever because scoreOriginal alone was high enough vs minPlausible.
     if (effective == CharMapping::Layout::Russian && ruRatio >= 0.85 && enRatio <= 0.05) {
-        if (scoreOriginal >= cfg_.minPlausibleDominantBigramScore) return false;
+        if (scoreOriginal >= cfg_.minPlausibleDominantBigramScore
+            && scoreSwapped <= scoreOriginal + cfg_.confidenceThreshold) {
+            return false;
+        }
     }
     if (effective == CharMapping::Layout::English && enRatio >= 0.85 && ruRatio <= 0.05) {
-        if (scoreOriginal >= cfg_.minPlausibleDominantBigramScore) return false;
+        if (scoreOriginal >= cfg_.minPlausibleDominantBigramScore
+            && scoreSwapped <= scoreOriginal + cfg_.confidenceThreshold) {
+            return false;
+        }
     }
 
-    // Switch only if the swapped version scores significantly better
-    return (scoreSwapped - scoreOriginal) > cfg_.confidenceThreshold;
+    const double diff = scoreSwapped - scoreOriginal;
+    return diff > cfg_.confidenceThreshold;
 }
 
 } // namespace punto

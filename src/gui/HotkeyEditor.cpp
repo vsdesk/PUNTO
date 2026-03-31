@@ -31,6 +31,12 @@ static QMap<int, QString> buildQtToFcitxNames() {
     m[Qt::Key_F4]  = "F4";  m[Qt::Key_F5]  = "F5";  m[Qt::Key_F6]  = "F6";
     m[Qt::Key_F7]  = "F7";  m[Qt::Key_F8]  = "F8";  m[Qt::Key_F9]  = "F9";
     m[Qt::Key_F10] = "F10"; m[Qt::Key_F11] = "F11"; m[Qt::Key_F12] = "F12";
+    m[Qt::Key_Insert]    = "insert";
+    m[Qt::Key_Home]      = "home";
+    m[Qt::Key_End]       = "end";
+    m[Qt::Key_PageUp]    = "pageup";
+    m[Qt::Key_PageDown]  = "pagedown";
+    m[Qt::Key_CapsLock]  = "capslock";
     return m;
 }
 static const QMap<int, QString> QT_TO_FCITX_NAMES = buildQtToFcitxNames();
@@ -101,7 +107,14 @@ QString HotkeyEditor::fcitxString() const {
     } else if (key >= Qt::Key_0 && key <= Qt::Key_9) {
         parts << QString(QChar('0' + (key - Qt::Key_0)));
     } else {
-        parts << QKeySequence(key).toString().toLower();
+        // PortableText avoids locale-dependent labels (e.g. non-Latin key names) in daemon.ini.
+        QString p = QKeySequence(static_cast<int>(key)).toString(QKeySequence::PortableText);
+        p = p.toLower();
+        p.remove(QLatin1Char(' '));
+        if (p.isEmpty() || p == QLatin1String("?")) {
+            p = QKeySequence(static_cast<int>(key)).toString(QKeySequence::NativeText).toLower();
+        }
+        parts << p;
     }
 
     return parts.join('+');

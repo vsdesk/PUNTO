@@ -10,7 +10,7 @@ namespace punto {
 //
 //  1. Require word length >= minWordLength (guard against short false positives).
 //  2. Reject strings containing digits, '@', '/', '..' (URL/email/number guard).
-//  3. Map the entire word to the OTHER layout via CharMapping::swapWord().
+//  3. Map the entire word to the OTHER layout via CharMapping::invertLayoutWord().
 //  4. Score BOTH versions (original and swapped) with a bigram language model
 //     built from hardcoded top-50 bigrams per language.
 //  5. If   score(swapped) > score(original) + confidenceThreshold   →  switch.
@@ -20,16 +20,18 @@ namespace punto {
 //
 // Rationale for thresholds:
 //  - confidenceThreshold: margin (swapped - original) bigram scores; tune via daemon.ini.
-//  - minPlausibleDominantBigramScore: if the word is almost all one script and already scores
-//    this well in that script's model, do not swap (blocks false positives on real words).
-//  - minWordLength = 3  prevents single-character or two-character false fires.
+//  - minPlausibleDominantBigramScore: if the word is almost all one script and scores this
+//    well in that model *and* the swapped text does not score much higher in the other model,
+//    do not swap (blocks false positives on real words; still allows EN→RU when RU is clearer).
+//  - minWordLength = 3  prevents most short false fires; curated 1–2 letter Russian
+//    pronouns/interjections (я, мы, ты, эй, …) are handled separately when layout is EN.
 
 struct HeuristicConfig {
     int    minWordLength       = 3;
     double confidenceThreshold = 0.15; // how much better swapped must score
     /// If the word is almost all one script and already scores >= this in that script's bigram
     /// model, do not switch (reduces false positives on words like "привет" / "hello").
-    double minPlausibleDominantBigramScore = 0.18;
+    double minPlausibleDominantBigramScore = 0.42;
     bool   enabled                       = true;
 };
 
@@ -54,6 +56,20 @@ public:
 
     // Guard: returns true if `word` looks like a URL, email, number — skip auto-switch.
     static bool isGuarded(const std::u32string& word);
+
+    /// EN layout: first key is JCUKEN punctuation (not a letter), rest is Latin-only, and
+    /// invertLayoutWord yields an all-Cyrillic word — e.g. 'ne → эту. Bigram "ne" alone scores
+    /// as plausible English while "эту" may not beat the threshold; force switch in that case.
+    static bool isEnLayoutJcukenLeadPunctWord(const std::u32string& word);
+
+    /// Heuristic used by unit tests: "plausible Russian on Russian keyboard" (same scores as
+    /// autoswitch skip). Daemon and Fcitx manual swap no longer gate on this — blocking there
+    /// broke Alt+' / selection swap whenever the active layout was Russian.
+    static bool shouldBlockManualSwapPlausibleRussianOnRussianKeyboard(
+        const std::u32string& word,
+        bool   keyboardLayoutIsRussian,
+        double minPlausibleDominantBigramScore,
+        double confidenceThreshold);
 
 private:
     HeuristicConfig cfg_;

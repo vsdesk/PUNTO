@@ -1,3 +1,321 @@
+punto-switcher (1.0.0-127) unstable; urgency=medium
+
+  * Resume/reinit: reset KDE layout D-Bus poll backoff; if getLayout still fails briefly, keep
+    syncing xkb with lastKnownLayoutIndex so autoswitch and UTF-8 decode work after sleep.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Mon, 30 Mar 2026 18:00:00 +0000
+
+punto-switcher (1.0.0-126) unstable; urgency=medium
+
+  * Manual swap (Alt+', selection): do not block on "plausible Russian on RU keyboard" — restores
+    hotkeys when the active group is Russian.
+  * recoverStuckModifiersFromXkb: stop healing Alt from xkb effective state vs evdev (Russian
+    group can disagree with physical Alt during chords, breaking Alt+hotkeys).
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Mon, 30 Mar 2026 12:00:00 +0000
+
+punto-switcher (1.0.0-125) unstable; urgency=medium
+
+  * Hotkeys: HotkeySpec now lists all evdev trigger codes (alias KEY_APOSTROPHE/KEY_GRAVE); always
+    log resolved bindings to stderr on startup (codes + libevdev names) for diagnosis.
+  * Fixes incorrect two-code limit so OEM quote/grave keys always match.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Tue, 31 Mar 2026 00:00:00 +0000
+
+punto-switcher (1.0.0-124) unstable; urgency=medium
+
+  * Hotkeys: matchMods only requires modifiers listed in the binding (Shift/Ctrl no longer block
+    Alt+apostrophe); trim hotkey parts; try swap_selection / toggle / undo before swap_last.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Mon, 30 Mar 2026 23:00:00 +0000
+
+punto-switcher (1.0.0-123) unstable; urgency=medium
+
+  * Hotkeys: match KEY_GRAVE and KEY_APOSTROPHE for Alt+' bindings; extend evdev key name parser
+    (F1–F12, navigation, punctuation); restore default hotkey specs if daemon.ini is invalid;
+    GUI saves PortableText names for daemon.ini (avoids locale-only key labels).
+  * Daemon: letter-key repeat storm guard (lost key-up after suspend/USB); on device HUP/error
+    reinitialize keyboards in-process instead of exiting; reset letter-repeat state on reinit.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Mon, 30 Mar 2026 22:30:00 +0000
+
+punto-switcher (1.0.0-122) unstable; urgency=medium
+
+  * Daemon: only swallow Alt+' / Alt+Shift+' / undo trigger keys when the action succeeds. If
+    swap is blocked or there is nothing to swap, fall through so the chord is forwarded (fixes
+    "dead" hotkeys and odd undo when wl-paste/inject fails).
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Tue, 31 Mar 2026 12:00:00 +0000
+
+punto-switcher (1.0.0-121) unstable; urgency=medium
+
+  * Manual swap (Alt+'): if keyboard is Russian and the word is a plausible Russian token (same
+    test as autoswitch skip), do not invert to Latin — avoids turning «эту» into 'ne.
+  * RU bigram list: add эт, ту so short words like «эту» score as plausible Russian (needed for
+    the check above and consistent autoswitch guards).
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Mon, 30 Mar 2026 22:00:00 +0000
+
+punto-switcher (1.0.0-120) unstable; urgency=medium
+
+  * Auto-switch: force swap for words like 'ne → эту (JCUKEN lead punctuation + Latin tail that
+    inverts to all-Cyrillic). Bigram "ne" scored as plausible English and blocked switching;
+    daemon plausible-EN guard skipped the same case.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Mon, 30 Mar 2026 21:00:00 +0000
+
+punto-switcher (1.0.0-119) unstable; urgency=medium
+
+  * CharMapping: treat typographic apostrophes (U+2018/U+2019/…) like ASCII ' for JCUKEN↔QWERTY
+    swap (fixes 'ne → эту when the IME inserts ’ instead of ').
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Mon, 30 Mar 2026 20:00:00 +0000
+
+punto-switcher (1.0.0-118) unstable; urgency=medium
+
+  * GUI (daemon build): Daemon tab with passthrough checkbox; fix moc refreshSetupStatus when
+    built without Fcitx5.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Sun, 30 Mar 2026 19:30:00 +0000
+
+punto-switcher (1.0.0-117) unstable; urgency=medium
+
+  * uinput: always set keybits for a full PC keyboard mask; emit SYN_REPORT after each EV_KEY;
+    log short writes. Reduces dropped E/Backspace on some stacks.
+  * daemon.ini [daemon] passthrough=true — grab and forward only (no tracker/autoswitch) for
+    stable typing when full processing misbehaves.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Sun, 30 Mar 2026 19:00:00 +0000
+
+punto-switcher (1.0.0-116) unstable; urgency=medium
+
+  * Script-boundary split: only finalize the token (no checkAutoSwitch on that edge) to avoid
+    inject/backspace loops on short tokens like "e".
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Sun, 30 Mar 2026 18:00:00 +0000
+
+punto-switcher (1.0.0-115) unstable; urgency=medium
+
+  * Tracker: split word buffer when a Latin letter is followed by Cyrillic or vice versa
+    without a space, so English and Russian are not glued into one token.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Sun, 30 Mar 2026 17:30:00 +0000
+
+punto-switcher (1.0.0-114) unstable; urgency=medium
+
+  * Hotkeys: fix evdev letter handling — Linux KEY_A..KEY_Z are not contiguous, so bare-hotkey
+    guards and KEY_A+(c-'a') parsing were wrong (e.g. toggle_auto=e bound KEY_G, not KEY_E).
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Sun, 30 Mar 2026 17:00:00 +0000
+
+punto-switcher (1.0.0-113) unstable; urgency=medium
+
+  * Hotkeys: matchHotkey() also rejects bare typing keys (defense in depth if hk state is stale);
+    parseHotkey reports unknown key names explicitly.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Sun, 30 Mar 2026 16:30:00 +0000
+
+punto-switcher (1.0.0-112) unstable; urgency=medium
+
+  * Hotkeys: refuse swap/toggle/undo specs with no modifiers when the key is a letter, digit,
+    or common typing key — bare keys (e.g. toggle_auto=e, undo=BackSpace) previously swallowed
+    those presses with no forward to apps.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Sun, 30 Mar 2026 16:00:00 +0000
+
+punto-switcher (1.0.0-111) unstable; urgency=medium
+
+  * Suspend/resume: detect CLOCK_BOOTTIME gap before poll (first key after wake no longer
+    skips reinit) and after poll (sleep during poll no longer only refreshed lastBootSeconds).
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Sun, 30 Mar 2026 15:00:00 +0000
+
+punto-switcher (1.0.0-110) unstable; urgency=medium
+
+  * Suspend/resume: on CLOCK_BOOTTIME jump no longer exit the process; re-grab keyboards
+    in-process (same path as silence/topology reinit). Avoids broken Backspace/keys after
+    sleep from systemd restart races and stale evdev grab.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Sun, 30 Mar 2026 14:30:00 +0000
+
+punto-switcher (1.0.0-109) unstable; urgency=medium
+
+  * Auto-switch: allow curated 1–2 letter Russian tokens (я, мы, ты, он, вы, ее, эй, …)
+    when EN layout is active and min_word_length would otherwise block them.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Sun, 30 Mar 2026 14:00:00 +0000
+
+punto-switcher (1.0.0-108) unstable; urgency=medium
+
+  * Generalize JCUKEN punctuation handling to avoid one-by-one word regressions:
+    - tracker treats ; [ ] ` like , . as word-internal when adjacent to letters;
+    - mixed-prefix normalization now handles any first symbol that maps to a RU letter
+      (e.g. ", . ; [ ] ` '" + RU tail).
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Sun, 30 Mar 2026 13:45:00 +0000
+
+punto-switcher (1.0.0-107) unstable; urgency=medium
+
+  * Heuristic length guard: count layout-mappable punctuation keys as letter-like
+    (' ; , . etc.). Fixes short words like "'nj" auto-switching to "это".
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Sun, 30 Mar 2026 13:25:00 +0000
+
+punto-switcher (1.0.0-106) unstable; urgency=medium
+
+  * Runtime safety: detect Enter repeat storms (lost key-up) and synthesize Enter release
+    to stop runaway newlines while daemon is running.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Sun, 30 Mar 2026 13:05:00 +0000
+
+punto-switcher (1.0.0-105) unstable; urgency=medium
+
+  * Daemon shutdown hardening: on SIGTERM/SIGINT exit gracefully and release all
+    currently held keys before ungrabbing devices. Prevents stuck Enter/other keys
+    during stop/restart.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Sun, 30 Mar 2026 12:45:00 +0000
+
+punto-switcher (1.0.0-104) unstable; urgency=medium
+
+  * Tracker: treat ';' as word-internal in mixed JCUKEN input when typed at word start
+    or after a letter (same policy as ',' and '.'). Fixes "edf;tybtv" -> "уважением".
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Sun, 30 Mar 2026 12:20:00 +0000
+
+punto-switcher (1.0.0-103) unstable; urgency=medium
+
+  * CharMapping: map ASCII '.' to 'ю' (JCUKEN table), not '/'; keep '/' -> '.' for URL tails.
+    Mistyped scheme "реезыЖ." -> "https:/" is handled in invertLayoutWord when the prefix
+    swaps to http(s): or ftp:.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Sun, 30 Mar 2026 12:00:00 +0000
+
+punto-switcher (1.0.0-102) unstable; urgency=medium
+
+  * Tracker punctuation balance:
+    - keep dot/comma word-internal for mixed JCUKEN words ("pyf." -> "знаю");
+    - but force dot boundary for mistyped URL scheme prefixes ("реезыЖ." -> "https:/").
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Tue, 31 Mar 2026 02:25:00 +0000
+
+punto-switcher (1.0.0-101) unstable; urgency=medium
+
+  * Input safety: never swallow plain Space on boundary-processing paths.
+    Prevents "space not working" if autoswitch/consume logic enters edge states.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Tue, 31 Mar 2026 02:00:00 +0000
+
+punto-switcher (1.0.0-100) unstable; urgency=medium
+
+  * Fix regression from 99: keep dot as a boundary inside tracked words.
+    This restores "реезыЖ." and "реезыЖ.." -> https:// conversion, while
+    still keeping comma as word-internal for JCUKEN cases like "Lj,hsq".
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Tue, 31 Mar 2026 01:35:00 +0000
+
+punto-switcher (1.0.0-99) unstable; urgency=medium
+
+  * Autoswitch tracker: treat comma/dot as word-internal when they appear inside
+    an in-progress letter token (JCUKEN keys for б/ю), so mixed words like
+    "Lj,hsq" are scored/swapped as one token and convert to "Добрый".
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Tue, 31 Mar 2026 01:10:00 +0000
+
+punto-switcher (1.0.0-98) unstable; urgency=medium
+
+  * Daemon stability hardening:
+    - force RU mistyped URL scheme path ("реезыЖ.") to https:/ independent of heuristic score.
+    - recover stuck modifier state (Alt/Shift/Ctrl/Super) from xkb effective mods to prevent
+      swallowed letters and accidental hotkeys after missed key-up events.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Tue, 31 Mar 2026 00:40:00 +0000
+
+punto-switcher (1.0.0-97) unstable; urgency=medium
+
+  * Auto-switch: never convert already-ASCII technical tokens in EN layout
+    (https/http/www/domains) to Russian. Fixes "typing https starts switching to RU".
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Tue, 31 Mar 2026 00:10:00 +0000
+
+punto-switcher (1.0.0-96) unstable; urgency=medium
+
+  * Restore "реезыЖ.." → https:// after 95: second "." with empty buffer must
+    still be a word boundary when pendingUrlSecondSlash_ is set.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Mon, 30 Mar 2026 23:00:00 +0000
+
+punto-switcher (1.0.0-95) unstable; urgency=medium
+
+  * Word tracker: comma and period are not word boundaries when the buffer is
+    empty — they share JCUKEN keys with б/ю and must be tracked as the first
+    character of ",уква"-style tokens (fixes mixed-prefix fix never seeing comma).
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Mon, 30 Mar 2026 22:00:00 +0000
+
+punto-switcher (1.0.0-94) unstable; urgency=medium
+
+  * JCUKEN mixed token: leading "," or "." typed in EN layout + Cyrillic tail
+    (e.g. ",уква") is normalized to "б"/"ю" + tail; swapWord fixes to full word;
+    auto-switch applies the fix on word boundary. Prevents "б"+Latin garbage
+    from per-char swap.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Mon, 30 Mar 2026 21:00:00 +0000
+
+punto-switcher (1.0.0-93) unstable; urgency=medium
+
+  * Auto-switch: broader Russian bigram model; plausible-word guard now compares
+    dominant-script score with the swapped layout (wrong-layout Latin with "er"/"de"
+    is no longer treated as confident English). Default min_plausible_dominant_bigram_score 0.42.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Mon, 30 Mar 2026 20:00:00 +0000
+
+punto-switcher (1.0.0-92) unstable; urgency=medium
+
+  * Key autorepeat (EV_KEY value=2): forward to uinput only; do not call
+    xkb_state_update_key(KEY_DOWN) on repeat ticks. The key is already down
+    after value=1; extra KEY_DOWN calls skew xkb state and can cause wrong or
+    runaway letters (e.g. adjacent keys on the same row).
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Mon, 30 Mar 2026 18:00:00 +0000
+
+punto-switcher (1.0.0-91) unstable; urgency=medium
+
+  * Unstick keys on suspend/reinit:
+    before in-process reinit or exiting for systemd restart, emit explicit
+    key-up events for any keys we believe are held. This prevents apps from
+    observing stuck keys (e.g. continuous navigation/number key repeats).
+
+  * Watchdog anti-thrash:
+    - treat topology mismatch as reinit only on loss of currently opened
+      devices (avoid exits on harmless device gains).
+    - add a single silence-based in-process reopen after init/start to
+      catch BT keyboards that appear 10-15s after resume.
+    This reduces the chance of frequent daemon restarts that can disturb input.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Mon, 30 Mar 2026 12:10:00 +0000
+
+punto-switcher (1.0.0-89) unstable; urgency=medium
+
+  * Key autorepeat (EV_KEY value=2): forward only; do not run layout sync, word
+    tracker, or autoswitch on repeat ticks. Fixes runaway repeated letters and
+    broken typing in password fields when a key is held or repeat storms occur.
+
+  * Stop "stuck key / continuous scroll" after suspend/resume:
+    disable USB autosuspend for the Logitech Unifying receiver and Realtek BT
+    radio (udev rules). This prevents the receiver from losing key-up during
+    wake which makes the kernel believe a navigation key is still held.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Mon, 30 Mar 2026 12:00:00 +0000
+
+punto-switcher (1.0.0-87) unstable; urgency=medium
+
+  * Caps Lock: stop local toggle; sync effective Lock from xkb after each key and
+    seed Lock from kernel Caps LED on startup so case matches the keyboard after
+    resume/restart (fixes wrong/mixed case when Caps is on).
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Fri, 28 Mar 2026 12:00:00 +0000
+
 punto-switcher (1.0.0-86) unstable; urgency=medium
 
   * Speed up post-suspend recovery:

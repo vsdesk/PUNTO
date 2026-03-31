@@ -80,7 +80,21 @@ const std::unordered_map<char32_t, char32_t>& CharMapping::enToRuLower() {
     return m;
 }
 
+/** Typographic apostrophes → ASCII ' so they map like the physical ' key (э ↔ '). */
+static char32_t normalizeApostropheForSwap(char32_t c) {
+    switch (c) {
+        case U'\u2018': // ‘
+        case U'\u2019': // ’
+        case U'\u201B': // ‛
+        case U'\u02BC': // ʼ
+            return U'\'';
+        default:
+            return c;
+    }
+}
+
 char32_t CharMapping::swapChar(char32_t c) {
+    c = normalizeApostropheForSwap(c);
     // Special case: Ё/ё ↔ ~/`
     // On a Russian JCUKEN keyboard the Ё key sits on the same physical key as
     // backtick/tilde.  Unshifted: ё ↔ `   Shifted: Ё ↔ ~
@@ -88,9 +102,9 @@ char32_t CharMapping::swapChar(char32_t c) {
     if (c == U'~') return U'Ё';
     if (c == U'ё') return U'`';
     if (c == U'`') return U'ё';
-    // Slash key on standard JCUKEN:
-    // RU '.' is the same physical key as EN '/'.
-    if (c == U'.') return U'/';
+    // EN '/' → RU '.' (same key as the slash on US layout; reverse of mistyped URL tail).
+    // Do NOT map '.' → '/' here: '.' shares a key with 'ю' (see MAPPING_TABLE) and must
+    // go through enToRuLower so e.g. "pyf." → "знаю".
     if (c == U'/') return U'.';
 
     // Shifted punctuation on Russian layout (uppercase non-letters) ↔ shifted ASCII
@@ -129,11 +143,70 @@ char32_t CharMapping::swapChar(char32_t c) {
     return c; // no mapping — return original
 }
 
-std::u32string CharMapping::swapWord(const std::u32string& word) {
+static bool isUrlSchemeAsciiLower(const std::string& asciiLower) {
+    return asciiLower == "https:" || asciiLower == "http:" || asciiLower == "ftp:";
+}
+
+std::u32string CharMapping::invertLayoutWord(const std::u32string& word) {
+    // RU mistyped scheme + trailing ASCII period → "https:/" etc. (period is the '/' key path).
+    // Plain EN words ending in "." (e.g. "pyf.") use '.' → ю via MAPPING_TABLE instead.
+    if (word.size() >= 2 && word.back() == U'.') {
+        const std::u32string prefix = word.substr(0, word.size() - 1);
+        if (dominantLayout(prefix) == Layout::Russian && russianLetterRatio(prefix) >= 0.85) {
+            std::u32string prefSwapped;
+            prefSwapped.reserve(prefix.size());
+            for (char32_t c : prefix) prefSwapped.push_back(swapChar(c));
+            std::string pref8 = utf32_to_utf8(prefSwapped);
+            std::string low;
+            low.reserve(pref8.size());
+            for (unsigned char ch : pref8) low.push_back(static_cast<char>(std::tolower(ch)));
+            if (isUrlSchemeAsciiLower(low)) {
+                std::u32string out;
+                out.reserve(word.size());
+                for (char32_t c : prefix) out.push_back(swapChar(c));
+                out.push_back(U'/');
+                return out;
+            }
+        }
+    }
     std::u32string result;
     result.reserve(word.size());
     for (char32_t c : word) result.push_back(swapChar(c));
     return result;
+}
+
+std::u32string CharMapping::normalizeJcukenMixedPrefix(const std::u32string& word) {
+    if (word.size() < 2) return word;
+
+    auto restAllRussian = [&](size_t start) {
+        for (size_t i = start; i < word.size(); ++i) {
+            if (!isRussian(word[i])) return false;
+        }
+        return true;
+    };
+
+    if (!restAllRussian(1)) return word;
+    const char32_t f = word[0];
+    if (isRussian(f)) return word;
+
+    // Generic mixed-prefix fix:
+    // if the first EN punctuation/symbol key maps to a RU letter, replace it.
+    // Covers ",уква", ".уква", ";уква", "[уква", "]уква", "`уква", "'уква", etc.
+    const char32_t mapped = swapChar(f);
+    if (isRussian(mapped)) {
+        std::u32string out = word;
+        const char32_t t1 = word[1];
+        const bool upperTail = ((t1 >= U'А' && t1 <= U'Я') || t1 == U'Ё');
+        out[0] = upperTail ? ruUpper(ruLower(mapped)) : ruLower(mapped);
+        return out;
+    }
+    return word;
+}
+
+std::u32string CharMapping::swapWord(const std::u32string& word) {
+    std::u32string fixed = normalizeJcukenMixedPrefix(word);
+    if (fixed != word) return fixed;
+    return invertLayoutWord(word);
 }
 
 std::string CharMapping::swapWord(const std::string& utf8word) {

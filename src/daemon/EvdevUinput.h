@@ -35,6 +35,9 @@ public:
 
     const std::vector<libevdev*>& devices() const { return devs_; }
 
+    /// True if any grabbed keyboard reports Caps Lock LED on (sync with kernel after resume).
+    bool capsLockLedOn() const;
+
 private:
     int                       uinputFd_ = -1;
     std::vector<libevdev*> devs_;

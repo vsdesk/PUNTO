@@ -45,6 +45,12 @@ void LayoutController::invalidateLayoutCache() {
     cachedLayout_ = -1;
 }
 
+void LayoutController::resetLayoutPollState() const {
+    cachedLayout_           = -1;
+    layoutBackoffUntil_     = {};
+    layoutPollTs_           = {};
+}
+
 bool LayoutController::kdeSetLayout(int index) {
     if (!sessionBusEnvPresent()) return false;
     {

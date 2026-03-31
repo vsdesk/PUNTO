@@ -360,7 +360,7 @@ undo=Alt+shift+BackSpace
 enabled=true
 min_word_length=3
 confidence_threshold=0.15
-min_plausible_dominant_bigram_score=0.18
+min_plausible_dominant_bigram_score=0.42
 ```
 
 GUI сохраняет этот файл; daemon подхватывает его при старте

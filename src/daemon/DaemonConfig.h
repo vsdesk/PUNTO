@@ -7,6 +7,10 @@ namespace punto {
 struct DaemonConfig {
     std::string devicePath; // empty = auto-detect first keyboard
 
+    /// When true: grab keyboards and forward events only (no tracker, autoswitch, xkb).
+    /// Use if keys misbehave with full processing; fixes "dead" keys caused by logic bugs.
+    bool passthroughOnly = false;
+
     std::string swapLastSpec      = "Alt+apostrophe";
     std::string swapSelectionSpec = "Alt+Shift+apostrophe";
     std::string toggleAutoSpec    = "Alt+Shift+a";
@@ -17,7 +21,7 @@ struct DaemonConfig {
     /// Margin for swapped-vs-original bigram scores (daemon.ini: confidence_threshold).
     double confidenceThreshold = 0.18;
     /// If word is almost all one script and bigram score in that script is >= this, never autoswap.
-    double minPlausibleDominantBigramScore = 0.18;
+    double minPlausibleDominantBigramScore = 0.42;
 
     /// KDE / compositor layout indices (us=0, ru=1 typical).
     int layoutIndexEnglish = 0;

@@ -58,6 +58,11 @@ static bool setIMByPrefix(fcitx::Instance* instance,
     }
     return false;
 }
+
+static bool fcitxInputMethodIsRussian(fcitx::InputContext* ic) {
+    const std::string name = ic->inputMethod();
+    return name.rfind("keyboard-ru", 0) == 0;
+}
 } // namespace
 
 // ---------------------------------------------------------------------------
@@ -275,7 +280,21 @@ void PuntoModule::onKeyEvent(fcitx::KeyEvent& ev) {
     if (!p) return;
 
     char32_t ch = static_cast<char32_t>(unicode);
-    if (WordSwapper::isWordBoundary(ch)) {
+
+    if (WordSwapper::shouldSplitScriptBeforeAddChar(p->tracker.wordBuffer, ch)) {
+        // Same as daemon: only split tokens; autoswitch on script edge + inject caused "e" storms.
+        p->tracker.onBoundary(std::string());
+    }
+
+    bool prevIsLetter = false;
+    if (!p->tracker.wordBuffer.empty()) {
+        std::u32string wb32 = utf8_to_utf32(p->tracker.wordBuffer);
+        if (!wb32.empty()) {
+            const char32_t prev = wb32.back();
+            prevIsLetter = CharMapping::isEnglish(prev) || CharMapping::isRussian(prev);
+        }
+    }
+    if (WordSwapper::isWordBoundaryForTracker(ch, p->tracker.wordBuffer.empty(), prevIsLetter)) {
         p->tracker.onBoundary(utf32_to_utf8(std::u32string(1, ch)));
     } else {
         p->tracker.addChar(utf32_to_utf8(std::u32string(1, ch)));

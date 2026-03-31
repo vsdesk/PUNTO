@@ -42,6 +42,14 @@ TEST(Heuristic, RealRussianWordNotSwitched) {
     EXPECT_FALSE(result) << "'привет' should not trigger auto-switch";
 }
 
+// Autoswitch on space uses shouldSwitch — must not turn correct Russian into Latin ('ne).
+TEST(Heuristic, EtuNotAutoSwitchedWhenRussianDominant) {
+    AutoSwitchHeuristic h;
+    const std::string etu = utf32_to_utf8(U"эту");
+    EXPECT_FALSE(h.shouldSwitch(etu, CharMapping::Layout::Russian))
+        << "autoswitch after space must not replace «эту» with mistyped Latin";
+}
+
 TEST(Heuristic, RussianTitleCaseGreetingNotSwitched) {
     AutoSwitchHeuristic h;
     std::string ru = utf32_to_utf8(U"Привет");
@@ -152,6 +160,68 @@ TEST(Heuristic, MistypedHttpsOnRussianLayoutSwitches) {
     AutoSwitchHeuristic h;
     std::string mistyped = utf32_to_utf8(U"реезыЖ"); // physical keys for "https:"
     EXPECT_TRUE(h.shouldSwitch(mistyped, CharMapping::Layout::Russian));
+}
+
+TEST(Heuristic, EnglishHttpsNotSwitchedToRussian) {
+    AutoSwitchHeuristic h;
+    EXPECT_FALSE(h.shouldSwitch("https", CharMapping::Layout::English));
+    EXPECT_FALSE(h.shouldSwitch("github.com", CharMapping::Layout::English));
+}
+
+// "буква" typed with EN layout active: , e r d f
+TEST(Heuristic, RussianWordBookLetterSwitchesFromEnglishLayout) {
+    AutoSwitchHeuristic h;
+    EXPECT_TRUE(h.shouldSwitch(",erdf", CharMapping::Layout::English));
+}
+
+// "букву" (accidental EN bigrams er, de — must not be blocked as "plausible English")
+TEST(Heuristic, RussianWordBookLetterAccusativeSwitchesFromEnglishLayout) {
+    AutoSwitchHeuristic h;
+    EXPECT_TRUE(h.shouldSwitch(",erde", CharMapping::Layout::English));
+}
+
+// "это" typed with EN layout active: ' n j
+TEST(Heuristic, RussianEtoWithLeadingApostropheSwitchesFromEnglishLayout) {
+    AutoSwitchHeuristic h;
+    EXPECT_TRUE(h.shouldSwitch("'nj", CharMapping::Layout::English));
+}
+
+// "эту" on EN layout: ' n e — EN bigram "ne" alone looks like English; must still switch.
+TEST(Heuristic, RussianEtuOnEnglishLayoutLeadingApostropheNe) {
+    AutoSwitchHeuristic h;
+    EXPECT_TRUE(h.shouldSwitch("'ne", CharMapping::Layout::English));
+    EXPECT_TRUE(h.shouldSwitch(utf32_to_utf8(U"\u2019ne"), CharMapping::Layout::English));
+}
+
+// Helper still encodes "plausible RU on RU keyboard" (manual swap paths no longer call it).
+TEST(Heuristic, ShouldBlockManualSwapHelper_PlausibleRussianOnRussianKeyboard) {
+    const std::u32string etu = utf8_to_utf32(utf32_to_utf8(U"эту"));
+    EXPECT_TRUE(AutoSwitchHeuristic::shouldBlockManualSwapPlausibleRussianOnRussianKeyboard(
+        etu, true, 0.42, 0.18));
+    EXPECT_FALSE(AutoSwitchHeuristic::shouldBlockManualSwapPlausibleRussianOnRussianKeyboard(
+        etu, false, 0.42, 0.18));
+    const std::u32string ghbdtn = utf8_to_utf32("ghbdtn");
+    EXPECT_FALSE(AutoSwitchHeuristic::shouldBlockManualSwapPlausibleRussianOnRussianKeyboard(
+        ghbdtn, true, 0.42, 0.18));
+}
+
+// JCUKEN physical keys for short Russian words on EN layout (min_word_length would block these).
+TEST(Heuristic, ShortRussianPronounsAndInterjectionsFromEnglishLayout) {
+    AutoSwitchHeuristic h;
+    EXPECT_TRUE(h.shouldSwitch("z", CharMapping::Layout::English));   // я
+    EXPECT_TRUE(h.shouldSwitch("vs", CharMapping::Layout::English));  // мы
+    EXPECT_TRUE(h.shouldSwitch("ns", CharMapping::Layout::English));  // ты
+    EXPECT_TRUE(h.shouldSwitch("jy", CharMapping::Layout::English));  // он
+    EXPECT_TRUE(h.shouldSwitch("ds", CharMapping::Layout::English));  // вы
+    EXPECT_TRUE(h.shouldSwitch("tt", CharMapping::Layout::English));  // ее (е+е)
+    // эй: э=', й=q
+    EXPECT_TRUE(h.shouldSwitch("'q", CharMapping::Layout::English));
+}
+
+TEST(Heuristic, RussianBookLetterNotSwitchedWhenLayoutRussian) {
+    AutoSwitchHeuristic h;
+    std::string ru = utf32_to_utf8(U"буква");
+    EXPECT_FALSE(h.shouldSwitch(ru, CharMapping::Layout::Russian));
 }
 
 // ---------------------------------------------------------------------------

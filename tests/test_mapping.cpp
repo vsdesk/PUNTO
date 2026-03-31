@@ -107,6 +107,12 @@ TEST(CharMappingChar, NoMappingPassthrough) {
     EXPECT_EQ(CharMapping::swapChar(U'@'), U'@');
 }
 
+// '.' shares the same physical key as 'ю' (JCUKEN), not '/' (see MAPPING_TABLE).
+TEST(CharMappingChar, DotKeyMapsToYu) {
+    EXPECT_EQ(CharMapping::swapChar(U'.'), U'ю');
+    EXPECT_EQ(CharMapping::swapChar(U'/'), U'.');
+}
+
 // ---------------------------------------------------------------------------
 // Word swap tests (UTF-8 API)
 // ---------------------------------------------------------------------------
@@ -199,9 +205,31 @@ TEST(CharMappingWord, ShiftPunctuationRoundTrip) {
 }
 
 TEST(CharMappingWord, DotSlashPhysicalKeyRoundTrip) {
-    EXPECT_EQ(CharMapping::swapWord(std::string(".")), "/");
+    EXPECT_EQ(CharMapping::swapWord(std::string(".")), utf32_to_utf8(U"ю"));
     EXPECT_EQ(CharMapping::swapWord(std::string("/")), ".");
+    // Latin word + period: period is the "ю" key, not URL slash.
+    EXPECT_EQ(CharMapping::swapWord(std::string("pyf.")), utf32_to_utf8(U"знаю"));
     EXPECT_EQ(CharMapping::swapWord(std::string("реезыЖ.")), "https:/");
+}
+
+// EN "," key + RU letters (first key wrong layout): ",уква" → normalize to "буква"; toggle → ",erdf"
+TEST(CharMappingWord, MixedCommaThenRussian) {
+    const std::string mixed = utf32_to_utf8(U",уква");
+    EXPECT_EQ(CharMapping::swapWord(mixed), utf32_to_utf8(U"буква"));
+    EXPECT_EQ(CharMapping::swapWord(utf32_to_utf8(U"буква")), ",erdf");
+}
+
+TEST(CharMappingWord, MixedPrefixGeneralJcukenPunctuation) {
+    EXPECT_EQ(CharMapping::swapWord(utf32_to_utf8(U";ук")), utf32_to_utf8(U"жук"));
+    EXPECT_EQ(CharMapping::swapWord(utf32_to_utf8(U"[леб")), utf32_to_utf8(U"хлеб"));
+    EXPECT_EQ(CharMapping::swapWord(utf32_to_utf8(U"]од")), utf32_to_utf8(U"ъод"));
+    EXPECT_EQ(CharMapping::swapWord(utf32_to_utf8(U"`жик")), utf32_to_utf8(U"ёжик"));
+    EXPECT_EQ(CharMapping::swapWord(utf32_to_utf8(U"'то")), utf32_to_utf8(U"это"));
+    // 'ne (ASCII or typographic apostrophe) → эту — same key positions as эту in RU layout
+    EXPECT_EQ(CharMapping::swapWord(std::string("'ne")), utf32_to_utf8(U"эту"));
+    EXPECT_EQ(CharMapping::swapWord(utf32_to_utf8(U"\u2019ne")), utf32_to_utf8(U"эту"));
+    EXPECT_EQ(CharMapping::swapWord(utf32_to_utf8(U"\u2018ne")), utf32_to_utf8(U"эту"));
+    EXPECT_EQ(CharMapping::swapWord(utf32_to_utf8(U"эту")), std::string("'ne"));
 }
 
 // ---------------------------------------------------------------------------

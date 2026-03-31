@@ -19,7 +19,15 @@ public:
     // Returns the mapped character, or the original if no mapping exists.
     static char32_t swapChar(char32_t c);
 
-    // Swap every character in a UTF-32 string.
+    // Swap every character in a UTF-32 string (JCUKEN ↔ QWERTY), no mixed-prefix fix.
+    static std::u32string invertLayoutWord(const std::u32string& word);
+
+    // If the word starts with EN punctuation that shares a key with a RU letter (e.g. "," for "б")
+    // and the rest is Cyrillic, replace the leading character with that letter. Fixes ",уква" → "буква"
+    // when the first key was typed in the wrong layout mid-word.
+    static std::u32string normalizeJcukenMixedPrefix(const std::u32string& word);
+
+    // invertLayoutWord after normalizeJcukenMixedPrefix when the prefix was fixed; otherwise invert.
     static std::u32string swapWord(const std::u32string& word);
 
     // UTF-8 convenience wrapper.

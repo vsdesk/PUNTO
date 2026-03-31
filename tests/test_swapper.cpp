@@ -4,6 +4,23 @@
 
 using namespace punto;
 
+TEST(WordBoundary, ScriptSplitLatinThenCyrillic) {
+    EXPECT_TRUE(WordSwapper::shouldSplitScriptBeforeAddChar("hello", U'п'));
+}
+
+TEST(WordBoundary, ScriptSplitCyrillicThenLatin) {
+    const std::string ru = utf32_to_utf8(U"привет");
+    EXPECT_TRUE(WordSwapper::shouldSplitScriptBeforeAddChar(ru, U'h'));
+}
+
+TEST(WordBoundary, NoScriptSplitSameScriptLatin) {
+    EXPECT_FALSE(WordSwapper::shouldSplitScriptBeforeAddChar("hello", U'o'));
+}
+
+TEST(WordBoundary, NoScriptSplitEmptyBuffer) {
+    EXPECT_FALSE(WordSwapper::shouldSplitScriptBeforeAddChar("", U'a'));
+}
+
 // ---------------------------------------------------------------------------
 // isWordBoundary
 // ---------------------------------------------------------------------------
@@ -26,6 +43,38 @@ TEST(WordBoundary, LetterIsNotBoundary) {
     EXPECT_FALSE(WordSwapper::isWordBoundary(U'я'));
     EXPECT_FALSE(WordSwapper::isWordBoundary(U'-'));
     EXPECT_FALSE(WordSwapper::isWordBoundary(U'\''));
+}
+
+TEST(WordBoundary, CommaDotNotBoundaryWhenBufferEmpty) {
+    EXPECT_FALSE(WordSwapper::isWordBoundaryForTracker(U',', true));
+    EXPECT_FALSE(WordSwapper::isWordBoundaryForTracker(U'.', true));
+    EXPECT_TRUE(WordSwapper::isWordBoundaryForTracker(U',', false, false));
+    EXPECT_TRUE(WordSwapper::isWordBoundaryForTracker(U'.', false, false));
+}
+
+TEST(WordBoundary, CommaDotInsideWordAreNotBoundariesForTracker) {
+    EXPECT_FALSE(WordSwapper::isWordBoundaryForTracker(U',', false, true));
+    EXPECT_FALSE(WordSwapper::isWordBoundaryForTracker(U'.', false, true));
+}
+
+TEST(WordBoundary, SemicolonInsideWordIsNotBoundaryForTracker) {
+    EXPECT_FALSE(WordSwapper::isWordBoundaryForTracker(U';', false, true));
+    EXPECT_TRUE(WordSwapper::isWordBoundaryForTracker(U';', false, false));
+}
+
+TEST(WordBoundary, BracketsAndBacktickInsideWordAreNotBoundaryForTracker) {
+    EXPECT_FALSE(WordSwapper::isWordBoundaryForTracker(U'[', false, true));
+    EXPECT_FALSE(WordSwapper::isWordBoundaryForTracker(U']', false, true));
+    EXPECT_FALSE(WordSwapper::isWordBoundaryForTracker(U'`', false, true));
+    EXPECT_TRUE(WordSwapper::isWordBoundaryForTracker(U'[', false, false));
+}
+
+TEST(WordBoundary, DotIsBoundaryWhenPendingUrlSlash) {
+    EXPECT_TRUE(WordSwapper::isWordBoundaryForTracker(U'.', true, false, true));
+}
+
+TEST(WordBoundary, CommaIsBoundaryAfterNonLetter) {
+    EXPECT_TRUE(WordSwapper::isWordBoundaryForTracker(U',', false, false, false));
 }
 
 // ---------------------------------------------------------------------------
@@ -127,6 +176,11 @@ TEST(SwapSelection, UppercasePreserved) {
     // "Привет" → "Ghbdtn"
     std::string sel = utf32_to_utf8(U"Привет");
     EXPECT_EQ(WordSwapper::swapSelection(sel), "Ghbdtn");
+}
+
+TEST(SwapSelection, MistypedUvazheniem) {
+    // "edf;tybtv" typed in EN layout should become "уважением".
+    EXPECT_EQ(WordSwapper::swapSelection("edf;tybtv"), utf32_to_utf8(U"уважением"));
 }
 
 // ---------------------------------------------------------------------------

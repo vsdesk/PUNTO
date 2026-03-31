@@ -23,9 +23,7 @@ private slots:
     void onAbout();
     void onRunSetup();
     void onUndoSetup();
-#if PUNTO_WITH_FCITX
     void refreshSetupStatus();
-#endif
 
 private:
     void buildUI();
@@ -55,6 +53,9 @@ private:
 
     // Debug tab (Fcitx5 build only)
     QComboBox* logLevel_ = nullptr;
+
+    // Daemon-only: ~/.config/punto-switcher/daemon.ini [daemon] passthrough
+    QCheckBox* daemonPassthrough_ = nullptr;
 
     QPushButton* saveBtn_;
     QPushButton* cancelBtn_;

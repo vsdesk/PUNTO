@@ -7,9 +7,11 @@
 #include "LayoutController.h"
 
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <string>
 #include <unordered_set>
+#include <vector>
 
 struct xkb_context;
 struct xkb_keymap;
@@ -18,10 +20,9 @@ struct xkb_state;
 namespace punto {
 
 struct HotkeySpec {
-    uint32_t     modMask = 0; // 1=Alt 2=Shift 4=Ctrl 8=Super
-    unsigned int keyCode = 0;
-    /// Some keyboards emit KEY_GRAVE instead of KEY_APOSTROPHE for the same physical key.
-    unsigned int altKeyCode = 0;
+    uint32_t modMask = 0; // 1=Alt 2=Shift 4=Ctrl 8=Super
+    /// All evdev KEY_* codes that should trigger this binding (e.g. APOSTROPHE+GRAVE aliases).
+    std::vector<unsigned int> codes;
 };
 
 class PuntoDaemon {
@@ -62,15 +63,37 @@ private:
     // layout-change detection in processEvent does NOT reset the tracker (which would
     // erase lastWord and break the manual Alt+' hotkey right after an auto-switch).
     bool daemonSwitchedLayout_        = false;
+    // Guard against rare lost key-up on Enter: if we see a long repeat storm,
+    // synthesize key release and stop forwarding repeats.
+    std::chrono::steady_clock::time_point enterRepeatWindowStart_{};
+    int  enterRepeatCount_ = 0;
+    /// Lost key-up after suspend/USB can cause endless letter repeats; force release.
+    unsigned int                          letterRepeatCode_ = 0;
+    std::chrono::steady_clock::time_point letterRepeatWindowStart_{};
+    int                                   letterRepeatCount_ = 0;
+
+    // Used for silence-based device reacquire after resume/connection delay.
+    std::chrono::steady_clock::time_point lastInputEventAt_ = std::chrono::steady_clock::now();
 
     bool setupXkb();
     void teardownXkb();
 
     bool parseHotkey(const std::string& spec, HotkeySpec& out) const;
+    void logResolvedHotkeys() const;
     bool matchMods(uint32_t mask) const;
     bool matchHotkey(const HotkeySpec& hk, unsigned int code, int value) const;
     // Returns the current KDE layout index (or -1), updating xkb state.
     int syncXkbLayoutFromKde();
+    /// Match xkb Lock modifier to kernel Caps LED (fixes wrong case after restart / resume).
+    void seedCapsLockFromHardware();
+
+    /// Best-effort "unstick": release any keys we believe are currently held.
+    /// Used before in-process reinit/exit to prevent apps from seeing stuck keys
+    /// after suspend/resume or device-grab recovery.
+    void releaseAllDownKeys();
+    /// Release grabs, reset tracker/key state, reopen keyboards (suspend/resume, topology, etc.).
+    /// Returns false if io_.init fails (caller should teardown xkb and exit).
+    bool reinitKeyboardDevices(const char* logReason);
 
     void processEvent(const input_event& ev);
 
@@ -84,6 +107,7 @@ private:
 
     void tapBackspaces(int count);
     void applyLayoutForWord(CharMapping::Layout typedLayout);
+    void recoverStuckModifiersFromXkb();
 
     /// Wayland: wl-copy + Ctrl+V first (KWin often rejects wtype), then wtype; X11: wtype then paste.
     bool injectText(const std::string& utf8);

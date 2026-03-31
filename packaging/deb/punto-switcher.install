@@ -1,3 +1,4 @@
 src/daemon/punto-switcher.desktop etc/xdg/autostart/
 src/daemon/punto-switcher-daemon.service usr/lib/systemd/user/
 src/daemon/70-punto-switcher-uinput.rules usr/lib/udev/rules.d/
+src/daemon/71-punto-switcher-usb-nosuspend.rules usr/lib/udev/rules.d/

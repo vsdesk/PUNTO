@@ -2,7 +2,10 @@
 
 #include <libevdev/libevdev.h>
 
+#include <cerrno>
+#include <cstring>
 #include <fcntl.h>
+#include <linux/input-event-codes.h>
 #include <linux/uinput.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
@@ -242,6 +245,25 @@ bool EvdevUinput::init(const std::string& userPath) {
             if (libevdev_has_event_code(d, EV_KEY, i)) ioctl(uinputFd_, UI_SET_KEYBIT, i);
         }
     }
+    // Some nodes advertise an incomplete key mask; the kernel may drop EV_KEY writes for
+    // bits that were never set. Always enable a full PC-104-ish set used for typing.
+    static const int kEnsureKeyBits[] = {
+        KEY_ESC, KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0, KEY_MINUS,
+        KEY_EQUAL, KEY_BACKSPACE, KEY_TAB, KEY_Q, KEY_W, KEY_E, KEY_R, KEY_T, KEY_Y, KEY_U,
+        KEY_I, KEY_O, KEY_P, KEY_LEFTBRACE, KEY_RIGHTBRACE, KEY_ENTER, KEY_LEFTCTRL, KEY_A,
+        KEY_S, KEY_D, KEY_F, KEY_G, KEY_H, KEY_J, KEY_K, KEY_L, KEY_SEMICOLON, KEY_APOSTROPHE,
+        KEY_GRAVE, KEY_LEFTSHIFT, KEY_BACKSLASH, KEY_Z, KEY_X, KEY_C, KEY_V, KEY_B, KEY_N, KEY_M,
+        KEY_COMMA, KEY_DOT, KEY_SLASH, KEY_RIGHTSHIFT, KEY_KPASTERISK, KEY_LEFTALT, KEY_SPACE,
+        KEY_CAPSLOCK, KEY_F1, KEY_F2, KEY_F3, KEY_F4, KEY_F5, KEY_F6, KEY_F7, KEY_F8, KEY_F9,
+        KEY_F10, KEY_F11, KEY_F12, KEY_NUMLOCK, KEY_SCROLLLOCK, KEY_KP7, KEY_KP8, KEY_KP9,
+        KEY_KPMINUS, KEY_KP4, KEY_KP5, KEY_KP6, KEY_KPPLUS, KEY_KP1, KEY_KP2, KEY_KP3, KEY_KP0,
+        KEY_KPDOT, KEY_102ND, KEY_RIGHTALT, KEY_LINEFEED, KEY_HOME, KEY_UP, KEY_PAGEUP, KEY_LEFT,
+        KEY_RIGHT, KEY_END, KEY_DOWN, KEY_PAGEDOWN, KEY_INSERT, KEY_DELETE, KEY_KPSLASH,
+        KEY_RIGHTMETA, KEY_LEFTMETA,
+    };
+    for (unsigned int k : kEnsureKeyBits) {
+        (void)ioctl(uinputFd_, UI_SET_KEYBIT, static_cast<int>(k));
+    }
 
 #ifdef UI_DEV_SETUP
     uinput_setup usetup{};
@@ -318,18 +340,34 @@ bool EvdevUinput::hasDeviceSetChanged(const std::string& userPath) const {
         have.insert(std::to_string(static_cast<unsigned long long>(st.st_dev)) + ":" +
                     std::to_string(static_cast<unsigned long long>(st.st_ino)));
     }
-    // Reinit when effective keyboard inode set differs.
-    // This catches both:
-    // - disappeared/replaced currently opened devices
-    // - newly appeared keyboards after suspend (e.g. BT keyboard reconnect)
-    // Debouncing is handled by caller (topologyMismatchStreak).
-    return wanted != have;
+    // Stable-change policy (avoid thrash):
+    // reinit only when one of currently opened devices disappeared/replaced.
+    // New devices appearing are handled by a separate silence/resume logic in the daemon.
+    for (const auto& opened : have) {
+        if (!wanted.count(opened)) return true;
+    }
+    return false;
 }
 
 void EvdevUinput::forward(const input_event& ev) {
     if (uinputFd_ < 0) return;
-    input_event evo = ev;
-    (void)write(uinputFd_, &evo, sizeof(evo));
+    const ssize_t nw = ::write(uinputFd_, &ev, sizeof(ev));
+    if (nw != static_cast<ssize_t>(sizeof(ev))) {
+        std::cerr << "punto-switcher-daemon: uinput write failed (" << std::strerror(errno) << ")\n";
+    }
+    // libinput often expects SYN_REPORT immediately after each key change; raw evdev may send
+    // SYN in the next read(), but batching KEY+SYN avoids dropped keys on some compositors.
+    if (ev.type == EV_KEY) {
+        input_event syn{};
+        syn.type  = EV_SYN;
+        syn.code  = SYN_REPORT;
+        syn.value = 0;
+        const ssize_t ns = ::write(uinputFd_, &syn, sizeof(syn));
+        if (ns != static_cast<ssize_t>(sizeof(syn))) {
+            std::cerr << "punto-switcher-daemon: uinput SYN write failed (" << std::strerror(errno)
+                      << ")\n";
+        }
+    }
 }
 
 void EvdevUinput::emitKey(unsigned int code, int value) {
@@ -338,7 +376,6 @@ void EvdevUinput::emitKey(unsigned int code, int value) {
     ev.code = code;
     ev.value = value;
     forward(ev);
-    sync();
 }
 
 void EvdevUinput::sync() {
@@ -352,6 +389,16 @@ void EvdevUinput::sync() {
 int EvdevUinput::pollFd() const {
     if (devs_.empty()) return -1;
     return libevdev_get_fd(devs_.front());
+}
+
+bool EvdevUinput::capsLockLedOn() const {
+    for (libevdev* d : devs_) {
+        if (!d) continue;
+        if (!libevdev_has_event_type(d, EV_LED)) continue;
+        if (!libevdev_has_event_code(d, EV_LED, LED_CAPSL)) continue;
+        if (libevdev_get_event_value(d, EV_LED, LED_CAPSL) != 0) return true;
+    }
+    return false;
 }
 
 } // namespace punto

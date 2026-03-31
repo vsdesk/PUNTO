@@ -22,6 +22,49 @@ bool WordSwapper::isWordBoundary(char32_t c) {
     return false;
 }
 
+bool WordSwapper::shouldSplitScriptBeforeAddChar(const std::string& wordBufferUtf8, char32_t ch) {
+    if (wordBufferUtf8.empty()) return false;
+    if (!CharMapping::isEnglish(ch) && !CharMapping::isRussian(ch)) return false;
+
+    const std::u32string wb32 = utf8_to_utf32(wordBufferUtf8);
+    char32_t lastLetter = 0;
+    bool     hasLast    = false;
+    for (size_t i = wb32.size(); i > 0;) {
+        --i;
+        const char32_t c = wb32[i];
+        if (CharMapping::isEnglish(c)) {
+            lastLetter = c;
+            hasLast    = true;
+            break;
+        }
+        if (CharMapping::isRussian(c)) {
+            lastLetter = c;
+            hasLast    = true;
+            break;
+        }
+    }
+    if (!hasLast) return false;
+
+    const bool lastLatin = CharMapping::isEnglish(lastLetter);
+    const bool nextLatin = CharMapping::isEnglish(ch);
+    const bool lastCyr   = CharMapping::isRussian(lastLetter);
+    const bool nextCyr   = CharMapping::isRussian(ch);
+    return (lastLatin && nextCyr) || (lastCyr && nextLatin);
+}
+
+bool WordSwapper::isWordBoundaryForTracker(char32_t c, bool wordBufferEmpty,
+                                           bool prevIsLetter,
+                                           bool pendingUrlSecondSlash) {
+    if (!isWordBoundary(c)) return false;
+    // EN punctuation keys that map to RU letters on JCUKEN:
+    // , -> б, . -> ю, ; -> ж, [ -> х, ] -> ъ, ` -> ё
+    if ((c == U',' || c == U'.' || c == U';' || c == U'[' || c == U']' || c == U'`')
+        && !pendingUrlSecondSlash
+        && (wordBufferEmpty || prevIsLetter))
+        return false;
+    return true;
+}
+
 std::optional<SwapResult> WordSwapper::swapLastWord(const std::string& textBeforeCursor) {
     if (textBeforeCursor.empty()) return std::nullopt;
 
