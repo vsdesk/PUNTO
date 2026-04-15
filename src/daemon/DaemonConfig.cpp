@@ -159,6 +159,7 @@ DaemonConfig DaemonConfig::loadDefault() {
                 if (section == "daemon") {
                     if (key == "device") c.devicePath = val;
                     else if (key == "passthrough") c.passthroughOnly = parseBool(val);
+                    else if (key == "inject_paste_first") c.injectPasteFirstWayland = parseBool(val);
                 } else if (section == "hotkeys") {
                     if (key == "swap_last") c.swapLastSpec = val;
                     else if (key == "swap_selection") c.swapSelectionSpec = val;
@@ -205,7 +206,8 @@ bool DaemonConfig::save() const {
     out << "# punto-switcher-daemon — see README\n";
     out << "[daemon]\n";
     out << "device=" << devicePath << "\n";
-    out << "passthrough=" << (passthroughOnly ? "true" : "false") << "\n\n";
+    out << "passthrough=" << (passthroughOnly ? "true" : "false") << "\n";
+    out << "inject_paste_first=" << (injectPasteFirstWayland ? "true" : "false") << "\n\n";
     out << "[hotkeys]\n";
     out << "swap_last=" << swapLastSpec << "\n";
     out << "swap_selection=" << swapSelectionSpec << "\n";

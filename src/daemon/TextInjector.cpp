@@ -47,12 +47,17 @@ bool injectViaForkSingle(const std::string& utf8, bool silent) {
 
 } // namespace
 
-bool injectUtf8Text(const std::string& utf8) {
+bool injectUtf8Text(const std::string& utf8, bool logWtypeErrors) {
     if (utf8.empty()) return true;
 
     ensureSessionEnvFromParents();
 
-    if (injectViaForkSingle(utf8, false)) return true;
+    if (injectViaForkSingle(utf8, !logWtypeErrors)) return true;
+
+    // On Wayland, if the full string failed (no virtual-keyboard protocol, compositor waking),
+    // per-character wtype is pointless and slow — let injectText fall back to wl-copy + Ctrl+V.
+    const char* wl = std::getenv("WAYLAND_DISPLAY");
+    if (wl && wl[0]) return false;
 
     std::u32string u32 = utf8_to_utf32(utf8);
     for (size_t i = 0; i < u32.size(); ++i) {

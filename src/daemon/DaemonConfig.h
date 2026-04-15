@@ -11,6 +11,10 @@ struct DaemonConfig {
     /// Use if keys misbehave with full processing; fixes "dead" keys caused by logic bugs.
     bool passthroughOnly = false;
 
+    /// Wayland: try wl-copy + Ctrl+V before wtype. Use on KDE/Plasma when the compositor has no
+    /// zwp_virtual_keyboard (wtype always fails); keeps autoswitch working. Terminals still need wtype.
+    bool injectPasteFirstWayland = false;
+
     std::string swapLastSpec      = "Alt+apostrophe";
     std::string swapSelectionSpec = "Alt+Shift+apostrophe";
     std::string toggleAutoSpec    = "Alt+Shift+a";

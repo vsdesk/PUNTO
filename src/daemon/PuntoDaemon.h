@@ -109,7 +109,7 @@ private:
     void applyLayoutForWord(CharMapping::Layout typedLayout);
     void recoverStuckModifiersFromXkb();
 
-    /// Wayland: wl-copy + Ctrl+V first (KWin often rejects wtype), then wtype; X11: wtype then paste.
+    /// Wayland: wtype then wl-copy + Ctrl+V by default; daemon.ini inject_paste_first reverses order.
     bool injectText(const std::string& utf8);
     bool injectViaWlCopyPaste(const std::string& utf8);
 

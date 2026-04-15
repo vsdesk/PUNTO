@@ -1,3 +1,19 @@
+punto-switcher (1.0.0-129) unstable; urgency=medium
+
+  * GUI (daemon build): checkbox «Wayland: paste text before wtype» → [daemon] inject_paste_first.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Mon, 31 Mar 2026 14:00:00 +0000
+
+punto-switcher (1.0.0-128) unstable; urgency=medium
+
+  * Text inject: retry wtype/wl-copy up to 5 times with backoff (fixes autoswap after suspend when
+    Wayland/compositor is slow); longer delay after wl-copy before Ctrl+V.
+  * Wayland: skip per-character wtype after full-string failure (useless without virtual keyboard).
+  * daemon.ini [daemon] inject_paste_first=true — try clipboard paste before wtype (KDE/Plasma
+    without zwp_virtual_keyboard; avoids noisy wtype errors in journal).
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Mon, 31 Mar 2026 12:00:00 +0000
+
 punto-switcher (1.0.0-127) unstable; urgency=medium
 
   * Resume/reinit: reset KDE layout D-Bus poll backoff; if getLayout still fails briefly, keep

@@ -170,6 +170,15 @@ void MainWindow::buildUI() {
            "Use when keys are missing or stuck; same as [daemon] passthrough=true in daemon.ini."));
     daemonLayout->addWidget(daemonPassthrough_);
 
+    daemonInjectPasteFirst_ = new QCheckBox(
+        tr("Wayland: paste text before wtype (KDE / Plasma)"), this);
+    daemonInjectPasteFirst_->setToolTip(
+        tr("When enabled, the daemon tries clipboard + Ctrl+V before wtype. Use on KDE Wayland when "
+           "the compositor has no virtual-keyboard protocol (wtype fails, journal shows "
+           "\"Compositor does not support…\"). Improves auto-switch after resume in GUI apps; "
+           "terminals may still need wtype — disable here if auto-switch in Konsole breaks."));
+    daemonLayout->addWidget(daemonInjectPasteFirst_);
+
     auto* daemonNote = new QLabel(
         tr("<small><i>Normal mode keeps Punto features. Passthrough is for diagnosing or working "
            "around compositor/uinput issues. Restart the user service after saving.</i></small>"));
@@ -338,6 +347,9 @@ void MainWindow::loadConfig() {
     if (daemonPassthrough_) {
         daemonPassthrough_->setChecked(cfg.value("passthrough", false).toBool());
     }
+    if (daemonInjectPasteFirst_) {
+        daemonInjectPasteFirst_->setChecked(cfg.value("inject_paste_first", false).toBool());
+    }
     cfg.endGroup();
 
     cfg.beginGroup("autoswitch");
@@ -372,6 +384,9 @@ void MainWindow::saveConfig() {
     cfg.beginGroup("daemon");
     if (daemonPassthrough_) {
         cfg.setValue("passthrough", daemonPassthrough_->isChecked());
+    }
+    if (daemonInjectPasteFirst_) {
+        cfg.setValue("inject_paste_first", daemonInjectPasteFirst_->isChecked());
     }
     cfg.endGroup();
     cfg.beginGroup("autoswitch");
@@ -426,6 +441,7 @@ void MainWindow::onRestoreDefaults() {
     confidence_->setValue(DEFAULT_CONFIDENCE);
 #if !PUNTO_WITH_FCITX
     if (daemonPassthrough_) daemonPassthrough_->setChecked(false);
+    if (daemonInjectPasteFirst_) daemonInjectPasteFirst_->setChecked(false);
 #endif
 #if PUNTO_WITH_FCITX
     logLevel_->setCurrentIndex(1);

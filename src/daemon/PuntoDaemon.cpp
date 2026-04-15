@@ -609,9 +609,9 @@ bool PuntoDaemon::injectViaWlCopyPaste(const std::string& utf8) {
     if (n != static_cast<ssize_t>(utf8.size())) return false;
     if (!WIFEXITED(st) || WEXITSTATUS(st) != 0) return false;
 
-    // Give the wl-copy grandchild just enough time to connect to Wayland and claim the
-    // selection before we emit the paste shortcut. 80ms is ample (socket connect ~10ms).
-    ::usleep(80000);
+    // Give the wl-copy grandchild time to connect and claim the selection before Ctrl+V.
+    // After suspend/resume the compositor can be slow; 120ms reduces race with paste.
+    ::usleep(120000);
     // Release any held modifiers (Alt/Shift) so Ctrl+V reaches the app as plain paste,
     // not Alt+Ctrl+V or some other unintended combo. This matters when called from hotkey
     // handlers where the hotkey modifier is still physically held.
@@ -639,27 +639,37 @@ bool PuntoDaemon::injectText(const std::string& utf8) {
     if (utf8.empty()) return true;
     ensureSessionEnvFromParents();
 
-    // wtype uses the Wayland virtual keyboard protocol (zwp_virtual_keyboard_v1): it injects
-    // key events directly into the compositor and works in ALL applications — including
-    // terminals where Ctrl+V does not paste. Try it first.
-    if (injectUtf8Text(utf8)) {
-        if (puntoDebugEnabled()) {
-            std::cerr << "punto-switcher-daemon: text inject via wtype\n" << std::flush;
-        }
-        return true;
-    }
-
-    // Fallback: set clipboard via wl-copy, then send Ctrl+V.  Works in most GUI apps but
-    // NOT in terminals (they use Ctrl+Shift+V).  Used when wtype is unavailable or KWin
-    // rejects the virtual-keyboard protocol.
-    const char* wlDisp   = std::getenv("WAYLAND_DISPLAY");
+    const char* wlDisp    = std::getenv("WAYLAND_DISPLAY");
     const bool  onWayland = wlDisp && wlDisp[0];
-    if (onWayland && injectViaWlCopyPaste(utf8)) {
-        if (puntoDebugEnabled()) {
-            std::cerr << "punto-switcher-daemon: text inject via wl-copy + Ctrl+V (wtype fallback)\n"
-                      << std::flush;
+
+    // Retries: after resume, Wayland socket / clipboard can need a few hundred ms before wl-copy works.
+    static constexpr unsigned kInjectAttempts = 5;
+    static constexpr useconds_t kRetryDelaysUs[kInjectAttempts] = {0, 50'000, 120'000, 280'000, 600'000};
+
+    for (unsigned attempt = 0; attempt < kInjectAttempts; ++attempt) {
+        if (attempt > 0) ::usleep(kRetryDelaysUs[attempt]);
+        const bool logWt = (attempt + 1 == kInjectAttempts);
+
+        auto tryWtypeThenPaste = [&]() -> bool {
+            if (injectUtf8Text(utf8, logWt)) return true;
+            if (onWayland && injectViaWlCopyPaste(utf8)) return true;
+            return false;
+        };
+        auto tryPasteThenWtype = [&]() -> bool {
+            if (onWayland && injectViaWlCopyPaste(utf8)) return true;
+            if (injectUtf8Text(utf8, logWt)) return true;
+            return false;
+        };
+
+        const bool ok = cfg_.injectPasteFirstWayland ? tryPasteThenWtype() : tryWtypeThenPaste();
+        if (ok) {
+            if (puntoDebugEnabled()) {
+                std::cerr << "punto-switcher-daemon: text inject ok"
+                          << (attempt > 0 ? " (after retry)\n" : "\n")
+                          << std::flush;
+            }
+            return true;
         }
-        return true;
     }
     return false;
 }
