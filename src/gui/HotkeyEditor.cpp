@@ -36,6 +36,7 @@ static QMap<int, QString> buildQtToFcitxNames() {
     m[Qt::Key_End]       = "end";
     m[Qt::Key_PageUp]    = "pageup";
     m[Qt::Key_PageDown]  = "pagedown";
+    m[Qt::Key_Pause]     = "pause";
     m[Qt::Key_CapsLock]  = "capslock";
     return m;
 }
