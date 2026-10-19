@@ -129,6 +129,8 @@ static bool bareKeyNeedsModifiers(unsigned int code) {
     case KEY_RIGHTBRACE:
     case KEY_BACKSLASH:
     case KEY_102ND:
+    case KEY_PAUSE:
+    case KEY_PLAYPAUSE:
         return true;
     default:
         return false;

@@ -1,3 +1,9 @@
+rocket-switcher (1.0.0-137) unstable; urgency=medium
+
+  * Pause/Break can be the selection-swap hotkey (alt+pause). PrintScreen stays a screenshot.
+
+ -- Raketa Maintainer <maintainer@example.com>  Mon, 19 Oct 2026 12:30:00 +0300
+
 rocket-switcher (1.0.0-136) unstable; urgency=medium
 
   * The application is Ракета. Package, binaries and the user service are
