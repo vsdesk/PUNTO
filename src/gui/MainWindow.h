@@ -9,12 +9,24 @@
 #include <QTabWidget>
 #include <QComboBox>
 #include <QTextEdit>
+#include <QPlainTextEdit>
+#include <QSystemTrayIcon>
 #include "HotkeyEditor.h"
+
+class QAction;
+class QSocketNotifier;
+class QCloseEvent;
+class QShowEvent;
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
 public:
     explicit MainWindow(QWidget* parent = nullptr);
+    ~MainWindow() override;
+
+    // False when another settings window is already running: that window was asked to show itself.
+    bool takeSingleInstance();
+    void setupTray();
 
 private slots:
     void onSave();
@@ -25,6 +37,10 @@ private slots:
     void onUndoSetup();
     void refreshSetupStatus();
 
+protected:
+    void closeEvent(QCloseEvent* event) override;
+    void showEvent(QShowEvent* event) override;
+
 private:
     void buildUI();
 #if PUNTO_WITH_FCITX
@@ -32,8 +48,13 @@ private:
 #endif
     void loadConfig();
     void saveConfig();
+    void loadNeverWords();
+    void saveNeverWords();
+    QString neverWordsPath() const;
+    void refreshTray();
     QString configPath() const;
     void reloadFcitx5();
+    void onInstanceReady();
 
     // Setup tab
     QLabel*      setupStatusLabel_;
@@ -50,6 +71,12 @@ private:
     QCheckBox*      autoEnabled_;
     QSpinBox*       minWordLen_;
     QDoubleSpinBox* confidence_;
+    QPlainTextEdit* neverWords_ = nullptr;
+
+    QSystemTrayIcon* trayIcon_ = nullptr;
+    QAction*         trayAuto_ = nullptr;
+    int              instanceFd_ = -1;
+    QSocketNotifier* instanceNotifier_ = nullptr;
 
     // Debug tab (Fcitx5 build only)
     QComboBox* logLevel_ = nullptr;

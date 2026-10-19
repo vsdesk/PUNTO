@@ -2,6 +2,11 @@
 #include "../src/core/AutoSwitchHeuristic.h"
 #include "../src/core/CharMapping.h"
 #include "../src/core/Utf8Utils.h"
+#include "../src/core/WordDictionary.h"
+
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
 
 using namespace punto;
 
@@ -308,4 +313,33 @@ Known limitations:
    - auto-switch uses bigram heuristics (no dictionary); short uncommon words
      may occasionally false-positive or false-negative.
 )";
+}
+
+TEST(Heuristic, NeverListBlocksSwitchUntilReload) {
+    namespace fs = std::filesystem;
+    struct RestoreDict {
+        ~RestoreDict() {
+            ::unsetenv("PUNTO_DICT_DIR");
+            WordDictionary::reload();
+        }
+    } restore;
+    const fs::path dir = fs::temp_directory_path() / "rocket-switcher-never-test";
+    fs::remove_all(dir);
+    fs::create_directories(dir);
+    {
+        std::ofstream out(dir / "never.txt");
+        out << "привет\n";
+    }
+    ASSERT_EQ(::setenv("PUNTO_DICT_DIR", dir.c_str(), 1), 0);
+    WordDictionary::reload();
+
+    EXPECT_TRUE(WordDictionary::instance().blocked(std::u32string(U"привет")));
+    AutoSwitchHeuristic h;
+    EXPECT_FALSE(h.shouldSwitch("ghbdtn", CharMapping::Layout::English));
+
+    ::unsetenv("PUNTO_DICT_DIR");
+    WordDictionary::reload();
+    EXPECT_FALSE(WordDictionary::instance().blocked(std::u32string(U"привет")));
+    EXPECT_TRUE(h.shouldSwitch("ghbdtn", CharMapping::Layout::English));
+    fs::remove_all(dir);
 }

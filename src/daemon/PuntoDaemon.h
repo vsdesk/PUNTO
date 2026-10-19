@@ -98,6 +98,12 @@ private:
     // Used for silence-based device reacquire after resume/connection delay.
     std::chrono::steady_clock::time_point lastInputEventAt_ = std::chrono::steady_clock::now();
 
+    // Settings window and tray: STATUS / AUTO / RELOAD. -1 when the socket is down.
+    int controlFd_ = -1;
+    void openControl();
+    void closeControl();
+    void serviceControl();
+
     bool setupXkb();
     void teardownXkb();
 
@@ -123,6 +129,8 @@ private:
     bool doSwapLastWord();
     bool doSwapSelection();
     void doToggleAutoSwitch();
+    void setAutoSwitch(bool on);
+    void applyHeuristic();
     bool doUndoLast();
 
     enum class KeyRole { Ignore, Word, Boundary };

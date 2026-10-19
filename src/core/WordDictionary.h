@@ -13,6 +13,9 @@ namespace punto {
 class WordDictionary {
 public:
     static const WordDictionary& instance();
+    // Re-read dictionary files, including never.txt. The daemon calls this
+    // when the settings window saves the exception list.
+    static void reload();
 
     bool contains(const std::u32string& word, CharMapping::Layout layout) const;
     // never.txt: do not auto-switch if either form is listed.
@@ -20,13 +23,11 @@ public:
     // always.txt: prefer the swapped form when the typed form is not a real word.
     bool forced(const std::u32string& word) const;
 
-    std::size_t englishSize() const { return en_; }
-    std::size_t russianSize() const { return ru_; }
+    std::size_t englishSize() const;
+    std::size_t russianSize() const;
 
 private:
-    WordDictionary();
-    std::size_t en_ = 0;
-    std::size_t ru_ = 0;
+    WordDictionary() = default;
 };
 
 } // namespace punto

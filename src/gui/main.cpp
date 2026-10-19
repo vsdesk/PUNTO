@@ -3,6 +3,7 @@
 #include <QLibraryInfo>
 #include <QLocale>
 #include <QTranslator>
+#include <cstring>
 #include "MainWindow.h"
 
 int main(int argc, char* argv[]) {
@@ -22,7 +23,14 @@ int main(int argc, char* argv[]) {
     app.setWindowIcon(QIcon::fromTheme("input-keyboard",
                       QIcon::fromTheme("preferences-desktop-keyboard")));
 
+    bool trayOnly = false;
+    for (int i = 1; i < argc; ++i) {
+        if (std::strcmp(argv[i], "--tray") == 0) trayOnly = true;
+    }
+
     MainWindow w;
-    w.show();
+    if (!w.takeSingleInstance()) return 0;
+    w.setupTray();
+    if (!trayOnly) w.show();
     return app.exec();
 }

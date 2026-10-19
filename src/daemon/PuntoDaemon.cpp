@@ -2,6 +2,7 @@
 
 #include "../core/CharMapping.h"
 #include "../core/Utf8Utils.h"
+#include "../core/DaemonEndpoint.h"
 #include "../core/WordDictionary.h"
 #include "../core/WordSwapper.h"
 #include "SessionEnv.h"
@@ -9,7 +10,11 @@
 
 #include <libevdev/libevdev.h>
 #include <linux/input.h>
+#include <fcntl.h>
 #include <poll.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/un.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-names.h>
 
@@ -17,6 +22,7 @@
 #include <csignal>
 #include <algorithm>
 #include <cerrno>
+#include <memory>
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
@@ -240,12 +246,7 @@ static unsigned int keyNameToCode(const std::string& name) {
 } // namespace
 
 PuntoDaemon::PuntoDaemon(DaemonConfig cfg) : cfg_(std::move(cfg)), layout_(cfg_) {
-    HeuristicConfig h;
-    h.enabled                           = cfg_.autoSwitchEnabled;
-    h.minWordLength                     = cfg_.minWordLength;
-    h.confidenceThreshold               = cfg_.confidenceThreshold;
-    h.minPlausibleDominantBigramScore   = cfg_.minPlausibleDominantBigramScore;
-    heuristic_.setConfig(h);
+    applyHeuristic();
 
     parseHotkey(cfg_.swapLastSpec, hkSwapLast_);
     parseHotkey(cfg_.swapSelectionSpec, hkSwapSel_);
@@ -654,16 +655,110 @@ bool PuntoDaemon::injectText(const std::string& utf8) {
     return false;
 }
 
-void PuntoDaemon::doToggleAutoSwitch() {
-    cfg_.autoSwitchEnabled = !cfg_.autoSwitchEnabled;
-    cfg_.save();
+void PuntoDaemon::applyHeuristic() {
     HeuristicConfig h;
     h.enabled                           = cfg_.autoSwitchEnabled;
     h.minWordLength                     = cfg_.minWordLength;
     h.confidenceThreshold               = cfg_.confidenceThreshold;
     h.minPlausibleDominantBigramScore   = cfg_.minPlausibleDominantBigramScore;
     heuristic_.setConfig(h);
-    std::cerr << "rocket-switcher-daemon: AutoSwitch " << (cfg_.autoSwitchEnabled ? "ON" : "OFF") << "\n";
+}
+
+void PuntoDaemon::setAutoSwitch(bool on) {
+    if (cfg_.autoSwitchEnabled == on) return;
+    cfg_.autoSwitchEnabled = on;
+    cfg_.save();
+    applyHeuristic();
+    std::cerr << "rocket-switcher-daemon: AutoSwitch " << (on ? "ON" : "OFF") << "\n";
+}
+
+void PuntoDaemon::doToggleAutoSwitch() {
+    setAutoSwitch(!cfg_.autoSwitchEnabled);
+}
+
+void PuntoDaemon::openControl() {
+    closeControl();
+    const std::string path = daemonControlSocketPath();
+    ::unlink(path.c_str());
+
+    const int fd = ::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
+    if (fd < 0) {
+        std::cerr << "rocket-switcher-daemon: control socket: " << std::strerror(errno) << "\n";
+        return;
+    }
+    sockaddr_un addr{};
+    addr.sun_family = AF_UNIX;
+    if (path.size() >= sizeof(addr.sun_path)) {
+        ::close(fd);
+        std::cerr << "rocket-switcher-daemon: control socket path is too long\n";
+        return;
+    }
+    std::snprintf(addr.sun_path, sizeof(addr.sun_path), "%s", path.c_str());
+    if (::bind(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0
+        || ::listen(fd, 8) < 0) {
+        std::cerr << "rocket-switcher-daemon: control socket bind: " << std::strerror(errno) << "\n";
+        ::close(fd);
+        ::unlink(path.c_str());
+        return;
+    }
+    ::chmod(path.c_str(), 0600);
+    controlFd_ = fd;
+    std::cerr << "rocket-switcher-daemon: control socket " << path << "\n";
+}
+
+void PuntoDaemon::closeControl() {
+    if (controlFd_ < 0) return;
+    ::close(controlFd_);
+    controlFd_ = -1;
+    ::unlink(daemonControlSocketPath().c_str());
+}
+
+void PuntoDaemon::serviceControl() {
+    if (controlFd_ < 0) return;
+    for (;;) {
+        const int client = ::accept4(controlFd_, nullptr, nullptr, SOCK_CLOEXEC | SOCK_NONBLOCK);
+        if (client < 0) break;
+
+        struct ucred cred{};
+        socklen_t credLen = sizeof(cred);
+        if (::getsockopt(client, SOL_SOCKET, SO_PEERCRED, &cred, &credLen) < 0
+            || cred.uid != ::geteuid()) {
+            ::close(client);
+            continue;
+        }
+
+        char buf[128];
+        buf[0] = '\0';
+        ssize_t n = ::read(client, buf, sizeof(buf) - 1);
+        if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+            pollfd wait{};
+            wait.fd = client;
+            wait.events = POLLIN;
+            if (::poll(&wait, 1, 30) > 0)
+                n = ::read(client, buf, sizeof(buf) - 1);
+        }
+        std::string reply = "ERR\n";
+        if (n > 0) {
+            buf[n] = '\0';
+            std::string cmd(buf);
+            while (!cmd.empty() && (cmd.back() == '\n' || cmd.back() == '\r' || cmd.back() == ' '))
+                cmd.pop_back();
+            if (cmd == "STATUS") {
+                reply = cfg_.autoSwitchEnabled ? "AUTO 1\n" : "AUTO 0\n";
+            } else if (cmd == "AUTO 1" || cmd == "AUTO 0") {
+                setAutoSwitch(cmd == "AUTO 1");
+                reply = "OK\n";
+            } else if (cmd == "RELOAD") {
+                WordDictionary::reload();
+                std::cerr << "rocket-switcher-daemon: dictionary reloaded en="
+                          << WordDictionary::instance().englishSize()
+                          << " ru=" << WordDictionary::instance().russianSize() << "\n";
+                reply = "OK\n";
+            }
+        }
+        (void)::write(client, reply.data(), reply.size());
+        ::close(client);
+    }
 }
 
 
@@ -946,6 +1041,10 @@ int PuntoDaemon::run() {
     openMice();
 
     logResolvedHotkeys();
+    openControl();
+    auto closeControlAtExit = [this](void*) { closeControl(); };
+    std::unique_ptr<void, decltype(closeControlAtExit)> controlGuard(
+        static_cast<void*>(this), closeControlAtExit);
     {
         const WordDictionary& dict = WordDictionary::instance();
         std::cerr << "rocket-switcher-daemon: dictionary en=" << dict.englishSize()
@@ -976,7 +1075,14 @@ int PuntoDaemon::run() {
         const auto& devs = io_.devices();
         if (devs.empty()) {
             std::cerr << "rocket-switcher-daemon: no input devices opened, trying to reinitialize...\n";
-            ::usleep(500000);
+            if (controlFd_ >= 0) {
+                pollfd ctl{};
+                ctl.fd = controlFd_;
+                ctl.events = POLLIN;
+                if (::poll(&ctl, 1, 500) > 0) serviceControl();
+            } else {
+                ::usleep(500000);
+            }
             if (!io_.init(cfg_.devicePath)) {
                 ++consecutiveNoDeviceInits;
                 // Let systemd restart from a clean process after prolonged no-device state.
@@ -1029,6 +1135,12 @@ int PuntoDaemon::run() {
         for (size_t i = 0; i < mouseFds_.size(); ++i) {
             pfds[devs.size() + i].fd     = mouseFds_[i];
             pfds[devs.size() + i].events = POLLIN;
+        }
+        if (controlFd_ >= 0) {
+            pollfd ctl{};
+            ctl.fd = controlFd_;
+            ctl.events = POLLIN;
+            pfds.push_back(ctl);
         }
         const double bootBeforePoll = monotonicBootSeconds();
         const int    pollRes        = poll(pfds.data(), pfds.size(), 2000);
@@ -1094,6 +1206,11 @@ int PuntoDaemon::run() {
             continue;
         }
 
+        if (controlFd_ >= 0 && !pfds.empty() && pfds.back().fd == controlFd_
+            && (pfds.back().revents & POLLIN)) {
+            serviceControl();
+        }
+
         for (size_t i = 0; i < devs.size(); ++i) {
             if (pfds[i].revents & (POLLERR | POLLHUP | POLLNVAL)) {
                 std::cerr << "rocket-switcher-daemon: poll reports device error/hup (revents="
@@ -1134,7 +1251,8 @@ int PuntoDaemon::run() {
         }
         if (!needReinitAfterDeviceLoss) {
             bool mouseReady = false;
-            for (size_t i = devs.size(); i < pfds.size(); ++i) {
+            const size_t mouseEnd = devs.size() + mouseFds_.size();
+            for (size_t i = devs.size(); i < mouseEnd && i < pfds.size(); ++i) {
                 if (pfds[i].revents & POLLIN) mouseReady = true;
             }
             if (mouseReady) drainMice();
@@ -1161,6 +1279,7 @@ int PuntoDaemon::run() {
     // so Enter/Shift/etc. never remain logically pressed after daemon shutdown.
     releaseAllDownKeys();
     closeMice();
+    closeControl();
     io_.shutdown();
     teardownXkb();
     return 0;

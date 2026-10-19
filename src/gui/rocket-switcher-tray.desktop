@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Ракета
+Comment=Значок автопереключения раскладки
+Exec=rocket-switcher-config --tray
+Terminal=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true

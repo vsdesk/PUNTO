@@ -6,6 +6,7 @@ qt_add_executable(rocket-switcher-config
     main.cpp
     MainWindow.cpp
     HotkeyEditor.cpp
+    DaemonClient.cpp
 )
 
 target_link_libraries(rocket-switcher-config

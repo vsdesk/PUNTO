@@ -13,7 +13,31 @@
 #include <QLabel>
 #include <QFrame>
 #include <QTextEdit>
+#include <QPlainTextEdit>
 #include <QTimer>
+#include <QFile>
+#include <QMenu>
+#include <QAction>
+#include <QPainter>
+#include <QPixmap>
+#include <QFont>
+#include <QSocketNotifier>
+#include <QCloseEvent>
+#include <QShowEvent>
+#include <QSignalBlocker>
+#include "DaemonClient.h"
+
+#include <cerrno>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+
+#include <fcntl.h>
+#include <poll.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/un.h>
+#include <unistd.h>
 
 #ifndef PUNTO_WITH_FCITX
 #error "PUNTO_WITH_FCITX must be defined by CMake (0 or 1)"
@@ -27,14 +51,189 @@ static const char* DEFAULT_UNDO_SWITCH  = "Alt+shift+BackSpace";
 static const int    DEFAULT_MIN_WORD_LEN  = 3;
 static const double DEFAULT_CONFIDENCE    = 0.15;
 
+namespace {
+
+std::string instanceSocketPath() {
+    const char* rt = std::getenv("XDG_RUNTIME_DIR");
+    if (rt && rt[0])
+        return std::string(rt) + "/rocket-switcher-config.sock";
+    return std::string("/tmp/rocket-switcher-config.") + std::to_string(getuid()) + ".sock";
+}
+
+bool waitSocket(int fd, short events, int timeoutMs) {
+    pollfd pfd{};
+    pfd.fd = fd;
+    pfd.events = events;
+    for (;;) {
+        const int rc = ::poll(&pfd, 1, timeoutMs);
+        if (rc < 0 && errno == EINTR) continue;
+        return rc > 0 && (pfd.revents & events);
+    }
+}
+
+bool notifyExistingInstance() {
+    const std::string path = instanceSocketPath();
+    const int fd = ::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+    if (fd < 0) return false;
+    const int flags = ::fcntl(fd, F_GETFL, 0);
+    if (flags >= 0) ::fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+
+    sockaddr_un addr{};
+    addr.sun_family = AF_UNIX;
+    if (path.size() >= sizeof(addr.sun_path)) {
+        ::close(fd);
+        return false;
+    }
+    std::snprintf(addr.sun_path, sizeof(addr.sun_path), "%s", path.c_str());
+    const int conn = ::connect(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
+    if (conn < 0 && errno != EINPROGRESS) {
+        ::close(fd);
+        return false;
+    }
+    if (conn < 0 && !waitSocket(fd, POLLOUT, 300)) {
+        ::close(fd);
+        return false;
+    }
+    int soerr = 0;
+    socklen_t sl = sizeof(soerr);
+    if (::getsockopt(fd, SOL_SOCKET, SO_ERROR, &soerr, &sl) < 0 || soerr != 0) {
+        ::close(fd);
+        return false;
+    }
+    const char cmd[] = "SHOW\n";
+    if (::write(fd, cmd, sizeof(cmd) - 1) < 0 || !waitSocket(fd, POLLIN, 300)) {
+        ::close(fd);
+        return false;
+    }
+    char buf[32];
+    const ssize_t n = ::read(fd, buf, sizeof(buf) - 1);
+    ::close(fd);
+    if (n <= 0) return false;
+    buf[n] = '\0';
+    return std::strncmp(buf, "OK", 2) == 0;
+}
+
+// Flat monochrome rocket, same weight as Breeze status icons. The service
+// state is a small dot: green running with auto-switch, red auto-switch off,
+// gray when the daemon is not listening.
+QIcon rocketIcon(bool statusDot, bool on, bool alive) {
+    QIcon icon;
+    const QColor ink(0xfc, 0xfc, 0xfc);
+    for (const int logical : {22, 32}) {
+        for (const int scale : {1, 2}) {
+            QPixmap pm(logical * scale, logical * scale);
+            pm.setDevicePixelRatio(scale);
+            pm.fill(Qt::transparent);
+            QPainter p(&pm);
+            p.setRenderHint(QPainter::Antialiasing, true);
+            const qreal S = logical;
+            const QRectF box = statusDot
+                                   ? QRectF(S * 0.04, S * 0.02, S * 0.78, S * 0.78)
+                                   : QRectF(S * 0.12, S * 0.06, S * 0.76, S * 0.88);
+            auto X = [&](qreal u) { return box.left() + u * box.width(); };
+            auto Y = [&](qreal v) { return box.top() + v * box.height(); };
+
+            p.setPen(Qt::NoPen);
+            p.setBrush(ink);
+            QPolygonF nose;
+            nose << QPointF(X(0.50), Y(0.00))
+                 << QPointF(X(0.28), Y(0.42))
+                 << QPointF(X(0.72), Y(0.42));
+            p.drawPolygon(nose);
+            p.drawRect(QRectF(X(0.28), Y(0.34), box.width() * 0.44, box.height() * 0.40));
+            QPolygonF finL;
+            finL << QPointF(X(0.28), Y(0.52))
+                 << QPointF(X(0.02), Y(0.78))
+                 << QPointF(X(0.28), Y(0.74));
+            QPolygonF finR;
+            finR << QPointF(X(0.72), Y(0.52))
+                 << QPointF(X(0.98), Y(0.78))
+                 << QPointF(X(0.72), Y(0.74));
+            p.drawPolygon(finL);
+            p.drawPolygon(finR);
+            p.drawRect(QRectF(X(0.40), Y(0.70), box.width() * 0.20, box.height() * 0.16));
+
+            p.setCompositionMode(QPainter::CompositionMode_Clear);
+            p.drawEllipse(QPointF(X(0.50), Y(0.50)), box.width() * 0.09, box.height() * 0.09);
+            p.setCompositionMode(QPainter::CompositionMode_SourceOver);
+
+            if (statusDot) {
+                const qreal d = S * 0.20;
+                const QRectF dot(box.right() - d * 1.05, box.bottom() - d * 1.05, d, d);
+                p.setBrush(!alive ? QColor(0xa0, 0xa0, 0xa0)
+                                  : on ? QColor(0x3c, 0xc4, 0x5a)
+                                       : QColor(0xe0, 0x55, 0x55));
+                p.drawEllipse(dot);
+            }
+            icon.addPixmap(pm);
+        }
+    }
+    return icon;
+}
+
+} // namespace
+
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     setWindowTitle(tr("Ракета — настройки"));
-    setMinimumSize(520, 480);
+    setWindowIcon(rocketIcon(false, true, true));
+    setMinimumSize(520, 560);
     buildUI();
     loadConfig();
 #if PUNTO_WITH_FCITX
     QTimer::singleShot(0, this, &MainWindow::refreshSetupStatus);
 #endif
+}
+
+MainWindow::~MainWindow() {
+    if (instanceNotifier_) instanceNotifier_->setEnabled(false);
+    if (instanceFd_ >= 0) {
+        ::close(instanceFd_);
+        instanceFd_ = -1;
+        ::unlink(instanceSocketPath().c_str());
+    }
+}
+
+bool MainWindow::takeSingleInstance() {
+    if (notifyExistingInstance()) return false;
+
+    const std::string path = instanceSocketPath();
+    ::unlink(path.c_str());
+    const int fd = ::socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
+    if (fd < 0) return true;
+
+    sockaddr_un addr{};
+    addr.sun_family = AF_UNIX;
+    std::snprintf(addr.sun_path, sizeof(addr.sun_path), "%s", path.c_str());
+    if (path.size() >= sizeof(addr.sun_path)
+        || ::bind(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0
+        || ::listen(fd, 4) < 0) {
+        ::close(fd);
+        if (notifyExistingInstance()) return false;
+        return true;
+    }
+    ::chmod(path.c_str(), 0600);
+    instanceFd_ = fd;
+    instanceNotifier_ = new QSocketNotifier(fd, QSocketNotifier::Read, this);
+    connect(instanceNotifier_, &QSocketNotifier::activated, this, &MainWindow::onInstanceReady);
+    return true;
+}
+
+void MainWindow::onInstanceReady() {
+    if (instanceFd_ < 0) return;
+    for (;;) {
+        const int client = ::accept4(instanceFd_, nullptr, nullptr, SOCK_CLOEXEC | SOCK_NONBLOCK);
+        if (client < 0) break;
+        char buf[32];
+        const ssize_t n = ::read(client, buf, sizeof(buf) - 1);
+        const char ok[] = "OK\n";
+        (void)::write(client, ok, sizeof(ok) - 1);
+        ::close(client);
+        if (n > 0) {
+            show();
+            raise();
+            activateWindow();
+        }
+    }
 }
 
 #if PUNTO_WITH_FCITX
@@ -239,6 +438,14 @@ void MainWindow::buildUI() {
     autoLayout->addRow(tr("Минимальная длина слова:"), minWordLen_);
     autoLayout->addRow(tr("Порог уверенности:"), confidence_);
 
+    neverWords_ = new QPlainTextEdit(this);
+    neverWords_->setPlaceholderText(tr("по одному слову в строке"));
+    neverWords_->setMinimumHeight(110);
+    neverWords_->setToolTip(
+        tr("Эти слова не переключаются сами, в любой раскладке.\n"
+           "Имена, аббревиатуры, «ok». Строка с # — комментарий."));
+    autoLayout->addRow(tr("Не переключать:"), neverWords_);
+
     auto* autoNote = new QLabel(
         tr("<small><i>Сначала словарь: если набранное уже слово, оно остаётся; "
            "если слово получается в другой раскладке — раскладка меняется. "
@@ -375,6 +582,7 @@ void MainWindow::loadConfig() {
     confidence_->setValue(cfg.value("confidence_threshold", DEFAULT_CONFIDENCE).toDouble());
     cfg.endGroup();
 #endif
+    loadNeverWords();
 }
 
 void MainWindow::saveConfig() {
@@ -414,6 +622,7 @@ void MainWindow::saveConfig() {
 #endif
 
     cfg.sync();
+    saveNeverWords();
 }
 
 #if PUNTO_WITH_FCITX
@@ -432,14 +641,138 @@ void MainWindow::onSave() {
     reloadFcitx5();
     statusBar()->showMessage(tr("Настройки сохранены, Fcitx5 перезагружается."), 3000);
 #else
+    const QString reloaded = daemonCommand(QStringLiteral("RELOAD"));
     QProcess::startDetached("systemctl", {"--user", "try-restart", "rocket-switcher-daemon"});
     statusBar()->showMessage(
-        tr("Настройки сохранены, служба перезапускается."), 4000);
+        reloaded == QLatin1String("OK")
+            ? tr("Настройки сохранены. Список исключений уже у демона, служба перезапускается.")
+            : tr("Настройки сохранены, служба перезапускается."),
+        4000);
 #endif
 }
 
 void MainWindow::onCancel() {
     close();
+}
+
+QString MainWindow::neverWordsPath() const {
+    return QDir::homePath() + "/.config/rocket-switcher/dict/never.txt";
+}
+
+void MainWindow::loadNeverWords() {
+    if (!neverWords_) return;
+    QString path = neverWordsPath();
+    const QString old = QDir::homePath() + "/.config/punto-switcher/dict/never.txt";
+    if (!QFileInfo::exists(path) && QFileInfo::exists(old)) path = old;
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        neverWords_->clear();
+        return;
+    }
+    neverWords_->setPlainText(QString::fromUtf8(file.readAll()));
+}
+
+void MainWindow::saveNeverWords() {
+    if (!neverWords_) return;
+    const QString path = neverWordsPath();
+    QDir().mkpath(QFileInfo(path).absolutePath());
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) return;
+    QByteArray data = neverWords_->toPlainText().toUtf8();
+    if (!data.isEmpty() && !data.endsWith('\n')) data.append('\n');
+    file.write(data);
+}
+
+void MainWindow::setupTray() {
+#if PUNTO_WITH_FCITX
+    return;
+#else
+    if (!QSystemTrayIcon::isSystemTrayAvailable()) return;
+    QApplication::setQuitOnLastWindowClosed(false);
+
+    trayIcon_ = new QSystemTrayIcon(rocketIcon(true, true, false), this);
+    auto* menu = new QMenu(this);
+    trayAuto_ = menu->addAction(tr("Автопереключение"));
+    trayAuto_->setCheckable(true);
+    menu->addSeparator();
+    auto* showAct = menu->addAction(tr("Настройки"));
+    auto* quitAct = menu->addAction(tr("Выход"));
+    quitAct->setToolTip(tr("Закрыть значок. Демон продолжит работать."));
+    trayIcon_->setContextMenu(menu);
+
+    connect(trayAuto_, &QAction::toggled, this, [this](bool on) {
+        const QString reply = daemonCommand(on ? QStringLiteral("AUTO 1") : QStringLiteral("AUTO 0"));
+        if (reply != QLatin1String("OK")) {
+            refreshTray();
+            return;
+        }
+        trayIcon_->setIcon(rocketIcon(true, on, true));
+        trayIcon_->setToolTip(on ? tr("Ракета: автопереключение включено")
+                                 : tr("Ракета: автопереключение выключено"));
+        if (autoEnabled_) autoEnabled_->setChecked(on);
+    });
+    connect(showAct, &QAction::triggered, this, [this]() {
+        show();
+        raise();
+        activateWindow();
+    });
+    connect(quitAct, &QAction::triggered, qApp, &QApplication::quit);
+    connect(trayIcon_, &QSystemTrayIcon::activated, this,
+            [this](QSystemTrayIcon::ActivationReason reason) {
+                if (reason != QSystemTrayIcon::Trigger && reason != QSystemTrayIcon::DoubleClick)
+                    return;
+                if (isVisible()) hide();
+                else {
+                    show();
+                    raise();
+                    activateWindow();
+                }
+            });
+
+    auto* timer = new QTimer(this);
+    timer->setInterval(1500);
+    connect(timer, &QTimer::timeout, this, &MainWindow::refreshTray);
+    timer->start();
+    refreshTray();
+    trayIcon_->show();
+#endif
+}
+
+void MainWindow::refreshTray() {
+    if (!trayIcon_) return;
+    const QString reply = daemonCommand(QStringLiteral("STATUS"));
+    const bool alive = reply == QLatin1String("AUTO 1") || reply == QLatin1String("AUTO 0");
+    const bool on = reply == QLatin1String("AUTO 1");
+    if (trayAuto_) {
+        const QSignalBlocker block(trayAuto_);
+        trayAuto_->setChecked(on);
+        trayAuto_->setEnabled(alive);
+    }
+    trayIcon_->setIcon(rocketIcon(true, on, alive));
+    if (!alive)
+        trayIcon_->setToolTip(tr("Ракета: демон не запущен"));
+    else if (on)
+        trayIcon_->setToolTip(tr("Ракета: автопереключение включено"));
+    else
+        trayIcon_->setToolTip(tr("Ракета: автопереключение выключено"));
+}
+
+void MainWindow::closeEvent(QCloseEvent* event) {
+    if (trayIcon_ && trayIcon_->isVisible()) {
+        hide();
+        event->ignore();
+        return;
+    }
+    QMainWindow::closeEvent(event);
+}
+
+void MainWindow::showEvent(QShowEvent* event) {
+    QMainWindow::showEvent(event);
+#if !PUNTO_WITH_FCITX
+    const QString reply = daemonCommand(QStringLiteral("STATUS"));
+    if (autoEnabled_ && (reply == QLatin1String("AUTO 1") || reply == QLatin1String("AUTO 0")))
+        autoEnabled_->setChecked(reply == QLatin1String("AUTO 1"));
+#endif
 }
 
 void MainWindow::onRestoreDefaults() {
@@ -456,6 +789,7 @@ void MainWindow::onRestoreDefaults() {
     autoEnabled_->setChecked(true);
     minWordLen_->setValue(DEFAULT_MIN_WORD_LEN);
     confidence_->setValue(DEFAULT_CONFIDENCE);
+    if (neverWords_) neverWords_->clear();
 #if !PUNTO_WITH_FCITX
     if (daemonPassthrough_) daemonPassthrough_->setChecked(false);
     if (daemonInjectPasteFirst_) daemonInjectPasteFirst_->setChecked(false);

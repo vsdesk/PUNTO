@@ -1,3 +1,15 @@
+rocket-switcher (1.0.0-140) unstable; urgency=medium
+
+  * The tray icon is a monochrome rocket. A small dot shows whether the daemon is running.
+
+ -- Raketa Maintainer <maintainer@example.com>  Mon, 19 Oct 2026 13:10:00 +0300
+
+rocket-switcher (1.0.0-139) unstable; urgency=medium
+
+  * Settings list words that must not auto-switch. A tray icon toggles auto-switch.
+
+ -- Raketa Maintainer <maintainer@example.com>  Mon, 19 Oct 2026 13:05:00 +0300
+
 rocket-switcher (1.0.0-138) unstable; urgency=medium
 
   * The RPM is named rocket-switcher and uses the same revision as this .deb.

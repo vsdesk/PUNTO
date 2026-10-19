@@ -102,22 +102,25 @@ Bags loadBags() {
     return bags;
 }
 
-const Bags& bags() {
-    static const Bags loaded = loadBags();
+Bags& bags() {
+    static Bags loaded = loadBags();
     return loaded;
 }
 
 } // namespace
 
-WordDictionary::WordDictionary() {
-    en_ = bags().en.size();
-    ru_ = bags().ru.size();
-}
-
 const WordDictionary& WordDictionary::instance() {
     static const WordDictionary dict;
+    (void)bags();
     return dict;
 }
+
+void WordDictionary::reload() {
+    bags() = loadBags();
+}
+
+std::size_t WordDictionary::englishSize() const { return bags().en.size(); }
+std::size_t WordDictionary::russianSize() const { return bags().ru.size(); }
 
 bool WordDictionary::contains(const std::u32string& word, CharMapping::Layout layout) const {
     if (word.empty()) return false;
