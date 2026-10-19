@@ -151,6 +151,9 @@ static unsigned int keyNameToCode(const std::string& name) {
     if (n == "pageup" || n == "pgup") return KEY_PAGEUP;
     if (n == "pagedown" || n == "pgdn") return KEY_PAGEDOWN;
     if (n == "delete" || n == "del") return KEY_DELETE;
+    // "Pause"/"Break" is the dedicated physical key, which reports as KEY_PAUSE(119).
+    if (n == "pause" || n == "break") return KEY_PAUSE;
+    if (n == "playpause" || n == "play_pause" || n == "play/pause") return KEY_PLAYPAUSE;
     if (n == "capslock") return KEY_CAPSLOCK;
     if (n == "semicolon" || n == ";") return KEY_SEMICOLON;
     if (n == "comma" || n == ",") return KEY_COMMA;
@@ -283,6 +286,11 @@ bool PuntoDaemon::parseHotkey(const std::string& spec, HotkeySpec& out) const {
     // Same OEM key often comes as KEY_APOSTROPHE or KEY_GRAVE depending on driver/firmware.
     if (primary == KEY_APOSTROPHE) addCode(KEY_GRAVE);
     else if (primary == KEY_GRAVE) addCode(KEY_APOSTROPHE);
+    // Pause hardware varies slightly: "Pause" reports as KEY_PAUSE(119) on desktop
+    // keyboards, while laptops often use the media KEY_PLAYPAUSE(164). Accept both.
+    // KEY_SYSRQ(99)=PrintScreen is deliberately excluded so Alt+PrintScreen is untouched.
+    if (primary == KEY_PAUSE) addCode(KEY_PLAYPAUSE);
+    else if (primary == KEY_PLAYPAUSE) addCode(KEY_PAUSE);
 
     if (out.modMask == 0 && bareKeyNeedsModifiers(primary)) {
         std::cerr << "rocket-switcher-daemon: hotkey \"" << spec
