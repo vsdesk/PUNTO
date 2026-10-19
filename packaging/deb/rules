@@ -1,5 +1,5 @@
 #!/usr/bin/make -f
-# Debhelper rules file for punto-switcher
+# Debhelper rules file for rocket-switcher
 
 export DH_VERBOSE = 1
 
@@ -24,7 +24,7 @@ override_dh_auto_test:
 	true
 
 override_dh_strip:
-	dh_strip --dbgsym-migration='punto-switcher-dbg (<< 1.0.0~)'
+	dh_strip --dbgsym-migration='rocket-switcher-dbg (<< 1.0.0~)'
 
 # Ensure shared lib is found by ldd-based shlibs detection
 override_dh_shlibdeps:

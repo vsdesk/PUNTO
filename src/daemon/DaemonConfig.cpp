@@ -40,7 +40,11 @@ static std::string configPath() {
         if (envHome && envHome[0]) home = envHome;
     }
     if (home.empty()) return {};
-    return home + "/.config/punto-switcher/daemon.ini";
+    const std::string neu = home + "/.config/rocket-switcher/daemon.ini";
+    const std::string old = home + "/.config/punto-switcher/daemon.ini";
+    if (std::filesystem::exists(neu)) return neu;
+    if (std::filesystem::exists(old)) return old;
+    return neu;
 }
 
 static void trim(std::string& s) {
@@ -203,7 +207,7 @@ bool DaemonConfig::save() const {
     std::ofstream out(path, std::ios::trunc);
     if (!out) return false;
 
-    out << "# punto-switcher-daemon — see README\n";
+    out << "# rocket-switcher-daemon — see README\n";
     out << "[daemon]\n";
     out << "device=" << devicePath << "\n";
     out << "passthrough=" << (passthroughOnly ? "true" : "false") << "\n";

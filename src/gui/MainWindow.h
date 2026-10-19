@@ -54,7 +54,7 @@ private:
     // Debug tab (Fcitx5 build only)
     QComboBox* logLevel_ = nullptr;
 
-    // Daemon-only: ~/.config/punto-switcher/daemon.ini [daemon]
+    // Daemon-only: ~/.config/rocket-switcher/daemon.ini [daemon]
     QCheckBox* daemonPassthrough_     = nullptr;
     QCheckBox* daemonInjectPasteFirst_ = nullptr;
 

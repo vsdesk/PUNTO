@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Punto Switcher
-Comment=Automatic ru↔en keyboard layout correction
-# Start/restart daemon via user systemd service for stable lifecycle/restart behavior.
-Exec=/usr/bin/sh -lc "/usr/bin/systemctl --user daemon-reload >/dev/null 2>&1; /usr/bin/systemctl --user restart punto-switcher-daemon.service"
-Terminal=false
-NoDisplay=true
-X-GNOME-Autostart-enabled=true

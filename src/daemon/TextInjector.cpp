@@ -16,10 +16,10 @@ static void logWtypeFailure(int st) {
     const char* wl = std::getenv("WAYLAND_DISPLAY");
     if (WIFEXITED(st)) {
         std::fprintf(stderr,
-                     "punto-switcher-daemon: text inject failed (wtype exit=%d, WAYLAND_DISPLAY=%s)\n",
+                     "rocket-switcher-daemon: text inject failed (wtype exit=%d, WAYLAND_DISPLAY=%s)\n",
                      WEXITSTATUS(st), (wl && wl[0]) ? wl : "(unset)");
     } else {
-        std::fprintf(stderr, "punto-switcher-daemon: text inject failed (wtype did not exit normally)\n");
+        std::fprintf(stderr, "rocket-switcher-daemon: text inject failed (wtype did not exit normally)\n");
     }
     std::fflush(stderr);
 }

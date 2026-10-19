@@ -1,7 +1,7 @@
-Source: punto-switcher
+Source: rocket-switcher
 Section: utils
 Priority: optional
-Maintainer: PuntoSwitcher Maintainer <maintainer@example.com>
+Maintainer: Raketa Maintainer <maintainer@example.com>
 Build-Depends:
  debhelper-compat (= 13),
  cmake (>= 3.20),
@@ -13,18 +13,20 @@ Standards-Version: 4.6.2
 Rules-Requires-Root: no
 Homepage: https://github.com/your-org/punto-switcher
 
-Package: punto-switcher
+Package: rocket-switcher
 Architecture: any
 Depends:
  ${shlibs:Depends},
  ${misc:Depends},
  wtype,
  wl-clipboard
-Description: Punto-style ru<->en layout corrector — install and use (no Fcitx5)
+Conflicts: punto-switcher
+Replaces: punto-switcher
+Description: Ракета — исправление раскладки ru↔en
  After install: log out and log in once (or reboot) so the "input" group
- membership applies. Then punto-switcher-daemon starts automatically with
- your desktop session.
+ membership applies. Then rocket-switcher-daemon starts with the desktop session.
  .
- No Fcitx5. Qt6 GUI: punto-switcher-config edits ~/.config/punto-switcher/daemon.ini.
+ Qt6 GUI: rocket-switcher-config. Settings live in ~/.config/rocket-switcher/daemon.ini
+ (an existing ~/.config/punto-switcher/daemon.ini is still read).
  .
  Layout switching on KDE Plasma uses qdbus6 when available.

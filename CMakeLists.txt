@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 
 project(PuntoSwitcher
     VERSION 1.0.0
-    DESCRIPTION "Punto-style ru<->en keyboard layout switcher (evdev daemon; optional Fcitx5)"
+    DESCRIPTION "Ракета — ru↔en keyboard layout switcher (evdev daemon; optional Fcitx5)"
     HOMEPAGE_URL "https://github.com/your-org/punto-switcher"
     LANGUAGES CXX
 )
@@ -42,7 +42,7 @@ find_package(ECM QUIET)  # KDE Extra CMake Modules (optional, for FindFcitx5)
 # ---------------------------------------------------------------------------
 option(BUILD_FCITX "Build Fcitx5 input method module (optional)" OFF)
 option(BUILD_DAEMON "Build standalone evdev/uinput daemon" ON)
-option(BUILD_GUI "Build Qt settings (punto-switcher-config)" ON)
+option(BUILD_GUI "Build Qt settings (rocket-switcher-config)" ON)
 
 add_subdirectory(src/core)
 
@@ -63,7 +63,7 @@ endif()
 # KDE/Fcitx5 migration helper (only relevant when using Fcitx module)
 # ---------------------------------------------------------------------------
 if(BUILD_FCITX)
-    install(PROGRAMS scripts/punto-switcher-setup
+    install(PROGRAMS scripts/rocket-switcher-setup
             DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
 
@@ -79,10 +79,15 @@ endif()
 # ---------------------------------------------------------------------------
 # CPack configuration (for reference — packaging is done via debhelper/rpmbuild)
 # ---------------------------------------------------------------------------
-set(CPACK_PACKAGE_NAME              "punto-switcher")
+set(CPACK_PACKAGE_NAME              "rocket-switcher")
 set(CPACK_PACKAGE_VERSION           "${PROJECT_VERSION}")
 set(CPACK_PACKAGE_DESCRIPTION_SHORT "${PROJECT_DESCRIPTION}")
 set(CPACK_PACKAGE_CONTACT           "maintainer@example.com")
-set(CPACK_PACKAGE_VENDOR            "PuntoSwitcher Project")
+set(CPACK_PACKAGE_VENDOR            "Raketa")
+
+install(FILES
+    ${CMAKE_SOURCE_DIR}/data/dict/en.txt
+    ${CMAKE_SOURCE_DIR}/data/dict/ru.txt
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/rocket-switcher/dict)
 
 include(CPack)

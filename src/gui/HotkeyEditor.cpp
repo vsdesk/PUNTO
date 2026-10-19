@@ -47,12 +47,12 @@ HotkeyEditor::HotkeyEditor(QWidget* parent) : QWidget(parent) {
 
     display_ = new QLineEdit(this);
     display_->setReadOnly(true);
-    display_->setPlaceholderText(tr("Click to record hotkey…"));
+    display_->setPlaceholderText(tr("Нажмите, чтобы задать сочетание…"));
     display_->setFocusPolicy(Qt::StrongFocus);
     display_->installEventFilter(this);
 
-    clearBtn_ = new QPushButton(tr("Clear"), this);
-    clearBtn_->setMaximumWidth(60);
+    clearBtn_ = new QPushButton(tr("Сброс"), this);
+    clearBtn_->setMaximumWidth(72);
 
     layout->addWidget(display_);
     layout->addWidget(clearBtn_);
@@ -207,10 +207,10 @@ void HotkeyEditor::setRecording(bool on) {
     recording_ = on;
     if (on) {
         display_->setStyleSheet("background: #fffde7; border: 1px solid #f9a825;");
-        display_->setPlaceholderText(tr("Press key combination…"));
+        display_->setPlaceholderText(tr("Нажмите сочетание…"));
     } else {
         display_->setStyleSheet(QString());
-        display_->setPlaceholderText(tr("Click to record hotkey…"));
+        display_->setPlaceholderText(tr("Нажмите, чтобы задать сочетание…"));
     }
 }
 

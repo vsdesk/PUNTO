@@ -1,10 +1,12 @@
 #include "LayoutController.h"
 
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <sstream>
 #include <string>
+#include <unistd.h>
 
 namespace punto {
 
@@ -121,16 +123,8 @@ void LayoutController::setForCharLayout(CharMapping::Layout layout) {
     else if (layout == CharMapping::Layout::English) setEnglish();
 }
 
-int LayoutController::currentLayoutIndex() const {
+int LayoutController::queryLayoutNow() const {
     if (!sessionBusEnvPresent()) return -1;
-
-    const auto now = std::chrono::steady_clock::now();
-    if (now < layoutBackoffUntil_) return -1;
-
-    if (cachedLayout_ >= 0 && (now - layoutPollTs_) < std::chrono::milliseconds(250))
-        return cachedLayout_;
-    layoutPollTs_ = now;
-
     static const char* cmds[] = {
         "timeout 0.12s busctl --user call org.kde.keyboard /Layouts org.kde.KeyboardLayouts getLayout 2>/dev/null",
         "timeout 0.12s qdbus6 org.kde.keyboard /Layouts org.kde.KeyboardLayouts.getLayout 2>/dev/null",
@@ -147,18 +141,50 @@ int LayoutController::currentLayoutIndex() const {
         if (fgets(buf, sizeof(buf), p)) {
             int v = parseLayoutIndexLine(buf);
             (void)pclose(p);
-            if (v >= 0) {
-                cachedLayout_ = v;
-                layoutBackoffUntil_ = {};
-                return cachedLayout_;
-            }
+            if (v >= 0) return v;
         } else {
             (void)pclose(p);
         }
     }
+    return -1;
+}
+
+int LayoutController::currentLayoutIndex() const {
+    if (!sessionBusEnvPresent()) return -1;
+
+    const auto now = std::chrono::steady_clock::now();
+    if (now < layoutBackoffUntil_) return -1;
+
+    if (cachedLayout_ >= 0 && (now - layoutPollTs_) < std::chrono::milliseconds(250))
+        return cachedLayout_;
+    layoutPollTs_ = now;
+
+    const int v = queryLayoutNow();
+    if (v >= 0) {
+        cachedLayout_ = v;
+        layoutBackoffUntil_ = {};
+        return cachedLayout_;
+    }
     cachedLayout_ = -1;
     layoutBackoffUntil_ = now + std::chrono::seconds(4);
     return -1;
+}
+
+bool LayoutController::waitForLayoutIndex(int index, int timeoutMs) const {
+    if (index < 0) return false;
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMs);
+    do {
+        const int v = queryLayoutNow();
+        if (v == index) {
+            cachedLayout_ = v;
+            layoutPollTs_ = std::chrono::steady_clock::now();
+            layoutBackoffUntil_ = {};
+            return true;
+        }
+        if (std::chrono::steady_clock::now() >= deadline) break;
+        ::usleep(15000);
+    } while (true);
+    return false;
 }
 
 } // namespace punto

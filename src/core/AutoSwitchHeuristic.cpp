@@ -1,6 +1,8 @@
 #include "AutoSwitchHeuristic.h"
 #include "CharMapping.h"
 #include "Utf8Utils.h"
+#include "WordDictionary.h"
+#include "WordSwapper.h"
 #include <unordered_set>
 #include <algorithm>
 #include <cctype>
@@ -75,8 +77,10 @@ static std::u32string toLowerBasic(const std::u32string& s) {
     return out;
 }
 
-// Borrowed from common Punto-like switchers: force-switch obvious "technical" ASCII tokens
-// (http/https/www/domain suffixes) even when bigram score is inconclusive.
+// Force-switch obvious technical ASCII tokens (http/https/www/domain suffixes)
+// even when the bigram score is inconclusive. Short tokens are exact matches:
+// "www" is three letters, "ru"/"io" are two, and a substring search would
+// fire inside ordinary words.
 static bool looksLikeAsciiTechToken(const std::u32string& s) {
     std::u32string lower = toLowerBasic(s);
 
@@ -86,7 +90,14 @@ static bool looksLikeAsciiTechToken(const std::u32string& s) {
         if (CharMapping::isEnglish(c)) ++enLetters;
         else if (CharMapping::isRussian(c)) ++ruLetters;
     }
-    if (ruLetters > 0 || enLetters < 4) return false;
+    if (ruLetters > 0 || enLetters < 2) return false;
+
+    if (lower == U"www" || lower == U"ftp" || lower == U"ssh" || lower == U"git"
+        || lower == U"com" || lower == U"org" || lower == U"net" || lower == U"dev"
+        || lower == U"ru" || lower == U"io" || lower == U"ai")
+        return true;
+
+    if (enLetters < 3) return false;
 
     auto contains = [&](const char32_t* needle) {
         return lower.find(needle) != std::u32string::npos;
@@ -96,6 +107,8 @@ static bool looksLikeAsciiTechToken(const std::u32string& s) {
         || contains(U"ssh") || contains(U"git"))
         return true;
 
+    if (enLetters < 4) return false;
+
     if (contains(U"://")) return true;
 
     if (contains(U".com") || contains(U".org") || contains(U".net") || contains(U".io")
@@ -103,6 +116,18 @@ static bool looksLikeAsciiTechToken(const std::u32string& s) {
         return true;
 
     return false;
+}
+
+// '.' ',' ';' ':' '`' '[' on JCUKEN are letters on the other layout.
+// A dictionary hit must see "hello", not "hello.".
+static std::u32string stripTrailingLetterKeyPunct(const std::u32string& s) {
+    std::u32string out = s;
+    while (!out.empty() && WordSwapper::isWordBoundary(out.back())) {
+        const char32_t mapped = CharMapping::swapChar(out.back());
+        if (!CharMapping::isRussian(mapped) && !CharMapping::isEnglish(mapped)) break;
+        out.pop_back();
+    }
+    return out;
 }
 
 // Length guard helper: count symbols that are letters OR map to a letter key on
@@ -134,6 +159,7 @@ static bool isKnownShortRussianWord(const std::u32string& ru) {
     static const std::unordered_set<std::u32string> two = {
         U"мы", U"ты", U"он", U"вы", U"ее", U"эй", U"ну", U"да", U"не", U"ни",
         U"ли", U"бы", U"же", U"ах", U"ох", U"эх", U"ой", U"ай", U"уф",
+        U"на", U"по", U"из", U"то", U"но", U"за", U"от", U"до", U"со", U"во",
     };
     if (low.size() == 1) return one.count(low) != 0;
     return two.count(low) != 0;
@@ -226,8 +252,32 @@ bool AutoSwitchHeuristic::isGuarded(const std::u32string& word) {
 // ---------------------------------------------------------------------------
 // shouldSwitch
 // ---------------------------------------------------------------------------
+static bool isLowerLetter(char32_t c) {
+    return (c >= U'a' && c <= U'z') || (c >= U'а' && c <= U'я') || c == U'ё';
+}
+
+static bool isUpperLetter(char32_t c) {
+    return (c >= U'A' && c <= U'Z') || (c >= U'А' && c <= U'Я') || c == U'Ё';
+}
+
+// "iPhone" / "GitHub": an internal capital with a lowercase letter after it.
+// A final Shift (the colon in "реезыЖ" = "https:") is not camel case.
+static bool isInternalCamel(const std::u32string& s) {
+    bool seenLower = false;
+    for (size_t i = 0; i < s.size(); ++i) {
+        const char32_t c = s[i];
+        if (isLowerLetter(c)) seenLower = true;
+        if (!isUpperLetter(c) || i == 0 || !seenLower) continue;
+        for (size_t j = i + 1; j < s.size(); ++j) {
+            if (isLowerLetter(s[j])) return true;
+        }
+    }
+    return false;
+}
+
 bool AutoSwitchHeuristic::shouldSwitch(const std::string& word,
-                                       CharMapping::Layout currentLayout) const {
+                                       CharMapping::Layout currentLayout,
+                                       const std::string& swappedAsTyped) const {
     if (!cfg_.enabled) return false;
 
     std::u32string w32 = utf8_to_utf32(word);
@@ -237,8 +287,11 @@ bool AutoSwitchHeuristic::shouldSwitch(const std::string& word,
     for (char32_t c : w32)
         if (isLetterLikeForLengthGuard(c)) ++letterCount;
 
-    // URL/email/number guard
+    // URL/email/number guard. Underscore marks an identifier, not prose.
     if (isGuarded(w32)) return false;
+    for (char32_t c : w32)
+        if (c == U'_') return false;
+    if (isInternalCamel(w32)) return false;
 
     // Determine current layout from word content if not provided
     CharMapping::Layout effective = currentLayout;
@@ -248,27 +301,11 @@ bool AutoSwitchHeuristic::shouldSwitch(const std::string& word,
     if (effective == CharMapping::Layout::Unknown || effective == CharMapping::Layout::Mixed)
         return false; // can't determine what to swap to
 
-    // 1–2 character Russian pronouns / interjections (я, мы, ты, эй, …) typed on EN layout
-    // would otherwise fail min_word_length (default 3).
-    if (effective == CharMapping::Layout::English && letterCount >= 1 && letterCount <= 2
-        && static_cast<int>(letterCount) < cfg_.minWordLength) {
-        const std::u32string swappedShort = CharMapping::invertLayoutWord(w32);
-        if (!swappedShort.empty() && swappedShort.size() <= 2 && allRussianLetters(swappedShort)
-            && isKnownShortRussianWord(swappedShort)) {
-            return true;
-        }
-        return false;
-    }
-
-    if (static_cast<int>(letterCount) < cfg_.minWordLength) return false;
-
-    if (effective == CharMapping::Layout::English && isEnLayoutJcukenLeadPunctWord(w32)) {
-        return true;
-    }
-
-    // Invert layout for scoring (do not apply normalizeJcukenMixedPrefix here — that is a fix
-    // for display/swapWord, not part of bigram comparison on raw typed text).
-    std::u32string swapped = CharMapping::invertLayoutWord(w32);
+    // Prefer the other layout's xkb reading when the daemon has one. It matches
+    // the keys that will actually be replayed (shifted digit row, №, quotes).
+    std::u32string swapped = !swappedAsTyped.empty()
+                                 ? utf8_to_utf32(swappedAsTyped)
+                                 : CharMapping::invertLayoutWord(w32);
     // Technical ASCII token heuristic (URLs/repos/protocol-like strings).
     if (effective == CharMapping::Layout::Russian && looksLikeAsciiTechToken(swapped))
         return true;
@@ -277,9 +314,49 @@ bool AutoSwitchHeuristic::shouldSwitch(const std::string& word,
     if (effective == CharMapping::Layout::English && looksLikeAsciiTechToken(w32))
         return false;
 
+    // "hello." stays English. The period key is "ю" on the other layout, so
+    // converting would glue that letter on. A real separator is space or the
+    // slash key (the Russian period), which never enters the word.
+    {
+        const std::u32string stem = stripTrailingLetterKeyPunct(w32);
+        if (!stem.empty() && stem.size() < w32.size()) return false;
+    }
+
+    if (effective == CharMapping::Layout::English && isEnLayoutJcukenLeadPunctWord(w32)) {
+        return true;
+    }
+
     CharMapping::Layout otherLayout = (effective == CharMapping::Layout::Russian)
                                        ? CharMapping::Layout::English
                                        : CharMapping::Layout::Russian;
+
+    // Dictionary decides when exactly one of the two readings is a real word.
+    // Bigram margin does not override that: "ghbdtn" is not English, "привет" is Russian.
+    {
+        const WordDictionary& dict = WordDictionary::instance();
+        if (dict.blocked(w32) || dict.blocked(swapped)) return false;
+        const bool typedIn   = dict.contains(w32, effective);
+        const bool swappedIn = dict.contains(swapped, otherLayout);
+        if (typedIn) return false;
+        // Below minWordLength only the curated short list may switch ("ab" → "фи" must not).
+        if ((swappedIn || dict.forced(swapped))
+            && static_cast<int>(letterCount) >= cfg_.minWordLength) {
+            return true;
+        }
+    }
+
+    // 1–2 character Russian pronouns / interjections (я, мы, ты, эй, …) typed on EN layout
+    // when the dictionary does not contain them (builtin list still covers the tests).
+    if (effective == CharMapping::Layout::English && letterCount >= 1 && letterCount <= 2
+        && static_cast<int>(letterCount) < cfg_.minWordLength) {
+        if (!swapped.empty() && swapped.size() <= 2 && allRussianLetters(swapped)
+            && isKnownShortRussianWord(swapped)) {
+            return true;
+        }
+        return false;
+    }
+
+    if (static_cast<int>(letterCount) < cfg_.minWordLength) return false;
 
     // Score both versions against their respective language models
     double scoreOriginal = bigramScore(w32, effective);
@@ -304,8 +381,10 @@ bool AutoSwitchHeuristic::shouldSwitch(const std::string& word,
         }
     }
 
+    // Neither reading is in the dictionary: require a wider bigram margin than a known word.
+    const double need = std::max(cfg_.confidenceThreshold, 0.55);
     const double diff = scoreSwapped - scoreOriginal;
-    return diff > cfg_.confidenceThreshold;
+    return diff > need;
 }
 
 } // namespace punto

@@ -140,11 +140,19 @@ TEST(Guard, DoubleDotsNotGuardedByItself) {
 // Confidence threshold sensitivity test
 // ---------------------------------------------------------------------------
 
-TEST(Heuristic, HighThresholdPreventsSwitch) {
+TEST(Heuristic, DictionaryHitIgnoresBigramThreshold) {
     HeuristicConfig cfg;
-    cfg.confidenceThreshold = 1.5; // above any possible (scoreSwapped - scoreOriginal) ∈ [0,1]
+    cfg.confidenceThreshold = 1.5; // above any possible bigram margin
     AutoSwitchHeuristic h(cfg);
-    EXPECT_FALSE(h.shouldSwitch("ghbdtn", CharMapping::Layout::English));
+    // "привет" is in the Russian dictionary, "ghbdtn" is not English.
+    EXPECT_TRUE(h.shouldSwitch("ghbdtn", CharMapping::Layout::English));
+}
+
+TEST(Heuristic, UnknownTokenDoesNotSwitchOnBigramsAlone) {
+    HeuristicConfig cfg;
+    cfg.confidenceThreshold = 0.0;
+    AutoSwitchHeuristic h(cfg);
+    EXPECT_FALSE(h.shouldSwitch("xzqwvz", CharMapping::Layout::English));
 }
 
 TEST(Heuristic, LowThresholdAllowsSwitch) {
@@ -162,6 +170,27 @@ TEST(Heuristic, MistypedHttpsOnRussianLayoutSwitches) {
     EXPECT_TRUE(h.shouldSwitch(mistyped, CharMapping::Layout::Russian));
 }
 
+// "www" is three letters (ццц). "com" is the label after a domain dot (сщь).
+TEST(Heuristic, ShortTechTokensSwitchFromRussianLayout) {
+    AutoSwitchHeuristic h;
+    EXPECT_TRUE(h.shouldSwitch(utf32_to_utf8(U"ццц"), CharMapping::Layout::Russian));
+    EXPECT_TRUE(h.shouldSwitch(utf32_to_utf8(U"сщь"), CharMapping::Layout::Russian));
+    EXPECT_TRUE(h.shouldSwitch(utf32_to_utf8(U"аез"), CharMapping::Layout::Russian)); // ftp
+    EXPECT_FALSE(h.shouldSwitch("www", CharMapping::Layout::English));
+    EXPECT_FALSE(h.shouldSwitch("com", CharMapping::Layout::English));
+}
+
+// The US period/comma keys are letters on JCUKEN, so they sit inside the token.
+// "hello." must not become "руддщю". The Russian period is the slash key and
+// never enters this string.
+TEST(Heuristic, TrailingLayoutPunctuationDoesNotSwitch) {
+    AutoSwitchHeuristic h;
+    EXPECT_FALSE(h.shouldSwitch("hello.", CharMapping::Layout::English));
+    EXPECT_FALSE(h.shouldSwitch("hello,", CharMapping::Layout::English));
+    EXPECT_FALSE(h.shouldSwitch("ghbdtn.", CharMapping::Layout::English));
+    EXPECT_TRUE(h.shouldSwitch("ghbdtn", CharMapping::Layout::English));
+}
+
 TEST(Heuristic, EnglishHttpsNotSwitchedToRussian) {
     AutoSwitchHeuristic h;
     EXPECT_FALSE(h.shouldSwitch("https", CharMapping::Layout::English));
@@ -169,6 +198,12 @@ TEST(Heuristic, EnglishHttpsNotSwitchedToRussian) {
 }
 
 // "буква" typed with EN layout active: , e r d f
+// "Работает" on EN layout: б is the comma key, so the token is "Hf,jnftn", not two words.
+TEST(Heuristic, RabotaetWithCommaKeyStaysOneWord) {
+    AutoSwitchHeuristic h;
+    EXPECT_TRUE(h.shouldSwitch("Hf,jnftn", CharMapping::Layout::English));
+}
+
 TEST(Heuristic, RussianWordBookLetterSwitchesFromEnglishLayout) {
     AutoSwitchHeuristic h;
     EXPECT_TRUE(h.shouldSwitch(",erdf", CharMapping::Layout::English));

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Ракета
+Comment=Исправление раскладки ru↔en
+# Start/restart daemon via user systemd service for stable lifecycle/restart behavior.
+Exec=/usr/bin/sh -lc "/usr/bin/systemctl --user daemon-reload >/dev/null 2>&1; /usr/bin/systemctl --user restart rocket-switcher-daemon.service"
+Terminal=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true

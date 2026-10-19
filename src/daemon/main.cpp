@@ -18,9 +18,9 @@ static bool acquireSingleInstanceLock() {
     const char* rt = std::getenv("XDG_RUNTIME_DIR");
     std::string path;
     if (rt && *rt)
-        path = std::string(rt) + "/punto-switcher-daemon.lock";
+        path = std::string(rt) + "/rocket-switcher-daemon.lock";
     else
-        path = std::string("/tmp/punto-switcher-daemon.") + std::to_string(getuid()) + ".lock";
+        path = std::string("/tmp/rocket-switcher-daemon.") + std::to_string(getuid()) + ".lock";
 
     int fd = open(path.c_str(), O_CREAT | O_RDWR, 0600);
     if (fd < 0) return false;
@@ -62,14 +62,14 @@ int main(int argc, char** argv) {
             (void)dup2(fd, STDERR_FILENO);
             (void)dup2(fd, STDOUT_FILENO);
         } else {
-            std::perror("punto-switcher-daemon: --log-file");
+            std::perror("rocket-switcher-daemon: --log-file");
         }
     }
     /* Line-buffered stderr can hide PUNTO_DEBUG until flush when not a TTY. */
     (void)setvbuf(stderr, nullptr, _IONBF, 0);
 
     if (!acquireSingleInstanceLock()) {
-        std::cerr << "punto-switcher-daemon: another instance is already running (lock held)\n";
+        std::cerr << "rocket-switcher-daemon: another instance is already running (lock held)\n";
         return 1;
     }
 

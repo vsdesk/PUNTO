@@ -5,6 +5,7 @@
 #include "DaemonConfig.h"
 #include "EvdevUinput.h"
 #include "LayoutController.h"
+#include "XkbInterpreter.h"
 
 #include <array>
 #include <chrono>
@@ -63,6 +64,28 @@ private:
     // layout-change detection in processEvent does NOT reset the tracker (which would
     // erase lastWord and break the manual Alt+' hotkey right after an auto-switch).
     bool daemonSwitchedLayout_        = false;
+
+    XkbInterpreter                 keys_;
+    std::vector<Keystroke>         wordKeys_;
+    std::vector<Keystroke>         lastWordKeys_;
+    int                            wordLayout_      = -1;
+    int                            lastWordLayout_  = -1;
+    std::string                    lastBoundaryUtf8_;
+    bool                           lastBoundaryValid_ = false;
+    bool                           wordFrozen_      = false;
+
+    struct TypingUndo {
+        bool                   valid      = false;
+        bool                   selection  = false;
+        std::vector<Keystroke> keys;
+        int                    layoutIndex = -1;
+        std::string            boundaryUtf8;
+        std::string            originalText;
+        int                    deleteCpCount = 0;
+    };
+    TypingUndo typingUndo_;
+
+    std::vector<int> mouseFds_;
     // Guard against rare lost key-up on Enter: if we see a long repeat storm,
     // synthesize key release and stop forwarding repeats.
     std::chrono::steady_clock::time_point enterRepeatWindowStart_{};
@@ -102,11 +125,51 @@ private:
     void doToggleAutoSwitch();
     bool doUndoLast();
 
-    // Returns true when caller should consume (not forward) current boundary key event.
-    bool checkAutoSwitch(const std::string& word, const std::string& boundaryUtf8);
+    enum class KeyRole { Ignore, Word, Boundary };
+
+    Keystroke makeKeystroke(unsigned int code) const;
+    KeyRole classifyKey(const Keystroke& ks, int layout) const;
+    int otherLayoutIndex(int layout) const;
+    CharMapping::Layout layoutEnum(int layout) const;
+    void noteLayout(int layoutIndex);
+    void forgetTyping();
+    void noteWordKey(const Keystroke& ks);
+    void noteBackspace();
+    void noteRepeat(unsigned int code);
+    void releaseModifiersForInject();
+    void restoreHeldModifiers();
+    void replayKeystrokes(const std::vector<Keystroke>& keys);
+    bool emitUtf8InLayout(const std::string& utf8, int layout);
+    bool switchToLayout(int layoutIndex);
+    /// Layout that can produce `c`, preferring the one that is active now.
+    int layoutForCodepoint(char32_t c) const;
+    /// True when every character has a key in the English or Russian group.
+    bool canTypeText(const std::string& utf8) const;
+    /// Type `utf8` with uinput, switching layout when the current group has no key.
+    bool typeText(const std::string& utf8);
+    /// Backspace the word as displayed in `fromLayout`, replay it in `toLayout`.
+    /// `boundaryOnScreen` is true only when that separator was already inserted
+    /// (manual swap of a finished word). Auto-switch sees the separator first and
+    /// must not backspace it — that deletes the space before the word.
+    bool convertKeys(const std::vector<Keystroke>& keys, int fromLayout, int toLayout,
+                     const std::string& boundaryUtf8, bool boundaryOnScreen);
+    void commitWord(const Keystroke& boundary);
+    /// Returns true when the boundary key was replaced and must not be forwarded.
+    bool onWordBoundary(const Keystroke& boundary);
+
+    void openMice();
+    void closeMice();
+    void drainMice();
+
+    std::string readClipboard() const;
+    bool setClipboard(const std::string& utf8, bool pasteOnce);
+    bool clearClipboard();
+    void pasteCtrlV();
+    void copyCtrlC();
+    /// wl-copy without --paste-once, then Ctrl+V only after wl-paste reads it back.
+    bool pasteFromClipboard(const std::string& utf8);
 
     void tapBackspaces(int count);
-    void applyLayoutForWord(CharMapping::Layout typedLayout);
     void recoverStuckModifiersFromXkb();
 
     /// Wayland: wtype then wl-copy + Ctrl+V by default; daemon.ini inject_paste_first reverses order.

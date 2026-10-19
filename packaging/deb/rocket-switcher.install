@@ -1,0 +1,4 @@
+src/daemon/rocket-switcher.desktop etc/xdg/autostart/
+src/daemon/rocket-switcher-daemon.service usr/lib/systemd/user/
+src/daemon/70-rocket-switcher-uinput.rules usr/lib/udev/rules.d/
+src/daemon/71-rocket-switcher-usb-nosuspend.rules usr/lib/udev/rules.d/

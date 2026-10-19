@@ -32,6 +32,10 @@ static bool nameLooksBad(const char* name) {
     if (!name || !*name) return false;
     std::string s(name);
     for (auto& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    if (s.find("punto-switcher") != std::string::npos) return true;
+    if (s.find("rocket-switcher") != std::string::npos) return true;
+    if (s.find("wtype") != std::string::npos) return true;
+    if (s.find("ydotool") != std::string::npos) return true;
     if (s.find("touchpad") != std::string::npos) return true;
     if (s.find("trackpad") != std::string::npos) return true;
     if (s.find("mouse") != std::string::npos && s.find("keyboard") == std::string::npos) return true;
@@ -134,14 +138,14 @@ static std::vector<std::string> findDefaultKeyboardPaths(bool verbose = true) {
     }
 
     if (verbose && merged.size() > 1) {
-        std::cerr << "punto-switcher-daemon: opening ALL of these keyboards (grab each):";
+        std::cerr << "rocket-switcher-daemon: opening ALL of these keyboards (grab each):";
         for (const auto& p : merged) std::cerr << ' ' << p;
         std::cerr << "\n";
     }
     if (!merged.empty()) return merged;
 
     if (verbose) {
-        std::cerr << "punto-switcher-daemon: no suitable keyboard under /dev/input/by-path/*kbd* or event0..127\n";
+        std::cerr << "rocket-switcher-daemon: no suitable keyboard under /dev/input/by-path/*kbd* or event0..127\n";
     }
     return {};
 }
@@ -184,7 +188,7 @@ bool EvdevUinput::init(const std::string& userPath) {
     if (paths.empty()) return false;
 
     for (const auto& p : paths) {
-        std::cerr << "punto-switcher-daemon: keyboard device: " << p
+        std::cerr << "rocket-switcher-daemon: keyboard device: " << p
                   << (userPath.empty() ? " (auto)\n" : "\n");
     }
 
@@ -194,7 +198,7 @@ bool EvdevUinput::init(const std::string& userPath) {
         /* O_NONBLOCK required: poll() + drain loop; without it the second libevdev_next_event blocks forever. */
         int fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NONBLOCK);
         if (fd < 0) {
-            std::cerr << "punto-switcher-daemon: open " << path << ": " << std::strerror(errno) << "\n";
+            std::cerr << "rocket-switcher-daemon: open " << path << ": " << std::strerror(errno) << "\n";
             for (libevdev* d : opened) {
                 int xfd = libevdev_get_fd(d);
                 libevdev_free(d);
@@ -204,7 +208,7 @@ bool EvdevUinput::init(const std::string& userPath) {
         }
         libevdev* d = nullptr;
         if (libevdev_new_from_fd(fd, &d) != 0) {
-            std::cerr << "punto-switcher-daemon: libevdev_new_from_fd(" << path << "): failed\n";
+            std::cerr << "rocket-switcher-daemon: libevdev_new_from_fd(" << path << "): failed\n";
             ::close(fd);
             for (libevdev* od : opened) {
                 int xfd = libevdev_get_fd(od);
@@ -222,13 +226,13 @@ bool EvdevUinput::init(const std::string& userPath) {
         opened.push_back(d);
     }
     if (opened.empty()) {
-        std::cerr << "punto-switcher-daemon: no valid keyboard devices opened\n";
+        std::cerr << "rocket-switcher-daemon: no valid keyboard devices opened\n";
         return false;
     }
 
     uinputFd_ = ::open("/dev/uinput", O_WRONLY | O_CLOEXEC);
     if (uinputFd_ < 0) {
-        std::cerr << "punto-switcher-daemon: open /dev/uinput: " << std::strerror(errno) << "\n";
+        std::cerr << "rocket-switcher-daemon: open /dev/uinput: " << std::strerror(errno) << "\n";
         for (libevdev* d : opened) {
             int xfd = libevdev_get_fd(d);
             libevdev_free(d);
@@ -268,13 +272,13 @@ bool EvdevUinput::init(const std::string& userPath) {
 #ifdef UI_DEV_SETUP
     uinput_setup usetup{};
     std::memset(&usetup, 0, sizeof(usetup));
-    std::strncpy(usetup.name, "punto-switcher-daemon", sizeof(usetup.name) - 1);
+    std::strncpy(usetup.name, "rocket-switcher-daemon", sizeof(usetup.name) - 1);
     usetup.id.bustype = BUS_USB;
     usetup.id.vendor  = 0x1d50;
     usetup.id.product = 0x600d;
     usetup.id.version = 1;
     if (ioctl(uinputFd_, UI_DEV_SETUP, &usetup) != 0) {
-        std::cerr << "punto-switcher-daemon: UI_DEV_SETUP: " << std::strerror(errno) << "\n";
+        std::cerr << "rocket-switcher-daemon: UI_DEV_SETUP: " << std::strerror(errno) << "\n";
         ::close(uinputFd_);
         uinputFd_ = -1;
         for (libevdev* d : opened) {
@@ -285,11 +289,11 @@ bool EvdevUinput::init(const std::string& userPath) {
         return false;
     }
 #else
-#error "punto-switcher-daemon requires Linux uinput UI_DEV_SETUP (kernel 4.4+)"
+#error "rocket-switcher-daemon requires Linux uinput UI_DEV_SETUP (kernel 4.4+)"
 #endif
 
     if (ioctl(uinputFd_, UI_DEV_CREATE) != 0) {
-        std::cerr << "punto-switcher-daemon: UI_DEV_CREATE: " << std::strerror(errno) << "\n";
+        std::cerr << "rocket-switcher-daemon: UI_DEV_CREATE: " << std::strerror(errno) << "\n";
         ::close(uinputFd_);
         uinputFd_ = -1;
         for (libevdev* d : opened) {
@@ -302,7 +306,7 @@ bool EvdevUinput::init(const std::string& userPath) {
 
     for (libevdev* d : opened) {
         if (libevdev_grab(d, LIBEVDEV_GRAB) != 0) {
-            std::cerr << "punto-switcher-daemon: libevdev_grab: " << std::strerror(errno) << "\n";
+            std::cerr << "rocket-switcher-daemon: libevdev_grab: " << std::strerror(errno) << "\n";
             ioctl(uinputFd_, UI_DEV_DESTROY);
             ::close(uinputFd_);
             uinputFd_ = -1;
@@ -318,7 +322,7 @@ bool EvdevUinput::init(const std::string& userPath) {
     devs_ = std::move(opened);
     for (libevdev* d : devs_) {
         const char* nm = libevdev_get_name(d);
-        std::cerr << "punto-switcher-daemon: keyboard name: \"" << (nm ? nm : "?") << "\"\n";
+        std::cerr << "rocket-switcher-daemon: keyboard name: \"" << (nm ? nm : "?") << "\"\n";
     }
 
     return true;
@@ -353,7 +357,7 @@ void EvdevUinput::forward(const input_event& ev) {
     if (uinputFd_ < 0) return;
     const ssize_t nw = ::write(uinputFd_, &ev, sizeof(ev));
     if (nw != static_cast<ssize_t>(sizeof(ev))) {
-        std::cerr << "punto-switcher-daemon: uinput write failed (" << std::strerror(errno) << ")\n";
+        std::cerr << "rocket-switcher-daemon: uinput write failed (" << std::strerror(errno) << ")\n";
     }
     // libinput often expects SYN_REPORT immediately after each key change; raw evdev may send
     // SYN in the next read(), but batching KEY+SYN avoids dropped keys on some compositors.
@@ -364,7 +368,7 @@ void EvdevUinput::forward(const input_event& ev) {
         syn.value = 0;
         const ssize_t ns = ::write(uinputFd_, &syn, sizeof(syn));
         if (ns != static_cast<ssize_t>(sizeof(syn))) {
-            std::cerr << "punto-switcher-daemon: uinput SYN write failed (" << std::strerror(errno)
+            std::cerr << "rocket-switcher-daemon: uinput SYN write failed (" << std::strerror(errno)
                       << ")\n";
         }
     }

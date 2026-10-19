@@ -19,6 +19,9 @@ public:
     /// Current KDE layout index for syncing xkb_state (-1 if unknown).
     int currentLayoutIndex() const;
 
+    /// Block until KDE reports `index`, or `timeoutMs` elapses. Bypasses the poll cache.
+    bool waitForLayoutIndex(int index, int timeoutMs) const;
+
     /// After resume or keyboard reinit: clear getLayout cache and D-Bus failure backoff
     /// so the next poll is not blocked for seconds (KDE session bus can lag right after wake).
     void resetLayoutPollState() const;
@@ -27,6 +30,7 @@ private:
     const DaemonConfig& cfg_;
     bool runCmdOr(const std::string& cmd, bool fallbackKde, int kdeIndex);
     bool kdeSetLayout(int index);
+    int queryLayoutNow() const;
 
     void invalidateLayoutCache();
 

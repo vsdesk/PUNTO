@@ -2,6 +2,7 @@
 
 #include "../core/CharMapping.h"
 #include "../core/Utf8Utils.h"
+#include "../core/WordDictionary.h"
 #include "../core/WordSwapper.h"
 #include "SessionEnv.h"
 #include "TextInjector.h"
@@ -45,19 +46,6 @@ static double monotonicBootSeconds() {
     timespec ts{};
     if (::clock_gettime(CLOCK_BOOTTIME, &ts) != 0) return 0.0;
     return static_cast<double>(ts.tv_sec) + static_cast<double>(ts.tv_nsec) / 1e9;
-}
-
-static bool ieq(std::string a, std::string b) {
-    for (auto& c : a) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-    for (auto& c : b) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-    return a == b;
-}
-
-static std::string toLowerAsciiCopy(std::string s) {
-    for (char& ch : s) {
-        if (ch >= 'A' && ch <= 'Z') ch = static_cast<char>(ch + ('a' - 'A'));
-    }
-    return s;
 }
 
 static void trimInPlace(std::string& s) {
@@ -244,30 +232,6 @@ static unsigned int keyNameToCode(const std::string& name) {
     return 0;
 }
 
-static bool isRuUpperLetter(char32_t c) { return (c >= U'А' && c <= U'Я') || c == U'Ё'; }
-static bool isEnUpperLetter(char32_t c) { return c >= U'A' && c <= U'Z'; }
-static char32_t toLowerLetter(char32_t c) {
-    if (c >= U'A' && c <= U'Z') return c + 32;
-    if (c == U'Ё') return U'ё';
-    if (c >= U'А' && c <= U'Я') return c + 0x20;
-    return c;
-}
-
-static bool isSuspiciousControlUtf8(const std::u32string& u32) {
-    if (u32.size() != 1) return false;
-    const char32_t c = u32[0];
-    // Ctrl+letter artifacts are usually U+0001..U+001A. Exclude tab/newline.
-    if (c == U'\t' || c == U'\n' || c == U'\r') return false;
-    return c > 0 && c < 0x20;
-}
-
-static void clearTransientXkbMods(::xkb_state* xkbState, int layoutIndex) {
-    if (!xkbState) return;
-    const xkb_mod_mask_t locked = xkb_state_serialize_mods(xkbState, XKB_STATE_MODS_LOCKED);
-    const xkb_layout_index_t lg = layoutIndex >= 0 ? static_cast<xkb_layout_index_t>(layoutIndex) : 0;
-    xkb_state_update_mask(xkbState, 0, 0, locked, lg, lg, lg);
-}
-
 } // namespace
 
 PuntoDaemon::PuntoDaemon(DaemonConfig cfg) : cfg_(std::move(cfg)), layout_(cfg_) {
@@ -306,7 +270,7 @@ bool PuntoDaemon::parseHotkey(const std::string& spec, HotkeySpec& out) const {
     }
     const unsigned primary = keyNameToCode(parts.back());
     if (primary == 0) {
-        std::cerr << "punto-switcher-daemon: hotkey \"" << spec << "\" — unknown key (check spelling)\n";
+        std::cerr << "rocket-switcher-daemon: hotkey \"" << spec << "\" — unknown key (check spelling)\n";
         return false;
     }
     auto addCode = [&](unsigned c) {
@@ -321,7 +285,7 @@ bool PuntoDaemon::parseHotkey(const std::string& spec, HotkeySpec& out) const {
     else if (primary == KEY_GRAVE) addCode(KEY_APOSTROPHE);
 
     if (out.modMask == 0 && bareKeyNeedsModifiers(primary)) {
-        std::cerr << "punto-switcher-daemon: hotkey \"" << spec
+        std::cerr << "rocket-switcher-daemon: hotkey \"" << spec
                   << "\" needs Alt/Ctrl/Shift/Super — bare key would block normal typing (ignored)\n";
         out.codes.clear();
         return false;
@@ -331,7 +295,7 @@ bool PuntoDaemon::parseHotkey(const std::string& spec, HotkeySpec& out) const {
 
 void PuntoDaemon::logResolvedHotkeys() const {
     auto dump = [](const char* label, const std::string& ini, const HotkeySpec& hk) {
-        std::cerr << "punto-switcher-daemon: hotkey " << label << " ini=\"" << ini << "\" modMask=" << hk.modMask
+        std::cerr << "rocket-switcher-daemon: hotkey " << label << " ini=\"" << ini << "\" modMask=" << hk.modMask
                   << " evdev";
         if (hk.codes.empty()) {
             std::cerr << "=(INVALID — no key codes)\n";
@@ -367,7 +331,7 @@ bool PuntoDaemon::setupXkb() {
     rn.options = "grp:alt_shift_toggle";
 
     if (puntoDebugEnabled()) {
-        std::cerr << "punto-switcher-daemon: xkb layout=\"" << cfg_.xkbLayoutString
+        std::cerr << "rocket-switcher-daemon: xkb layout=\"" << cfg_.xkbLayoutString
                   << "\" variant=\"" << cfg_.xkbVariantString << "\"\n" << std::flush;
     }
 
@@ -375,10 +339,14 @@ bool PuntoDaemon::setupXkb() {
     if (!xkbMap_) return false;
 
     xkbState_ = xkb_state_new(xkbMap_);
-    return xkbState_ != nullptr;
+    if (!xkbState_) return false;
+    keys_.setKeymap(xkbMap_);
+    return true;
 }
 
 void PuntoDaemon::teardownXkb() {
+    keys_.setKeymap(nullptr);
+    closeMice();
     if (xkbState_) {
         xkb_state_unref(xkbState_);
         xkbState_ = nullptr;
@@ -509,11 +477,12 @@ void PuntoDaemon::releaseAllDownKeys() {
 }
 
 bool PuntoDaemon::reinitKeyboardDevices(const char* logReason) {
-    std::cerr << "punto-switcher-daemon: " << logReason << "\n" << std::flush;
+    std::cerr << "rocket-switcher-daemon: " << logReason << "\n" << std::flush;
     releaseAllDownKeys();
+    closeMice();
     layout_.resetLayoutPollState();
     io_.shutdown();
-    tracker_.reset();
+    forgetTyping();
     keyState_.fill(0);
     swallowed_.clear();
     pendingLayoutRefresh_        = false;
@@ -525,11 +494,12 @@ bool PuntoDaemon::reinitKeyboardDevices(const char* logReason) {
     letterRepeatCount_           = 0;
     letterRepeatCode_            = 0;
     if (!io_.init(cfg_.devicePath)) {
-        std::cerr << "punto-switcher-daemon: keyboard reinit failed (io_.init)\n" << std::flush;
+        std::cerr << "rocket-switcher-daemon: keyboard reinit failed (io_.init)\n" << std::flush;
         return false;
     }
     seedCapsLockFromHardware();
-    lastKnownLayoutIndex_ = syncXkbLayoutFromKde();
+    noteLayout(syncXkbLayoutFromKde());
+    openMice();
     return true;
 }
 
@@ -664,7 +634,7 @@ bool PuntoDaemon::injectText(const std::string& utf8) {
         const bool ok = cfg_.injectPasteFirstWayland ? tryPasteThenWtype() : tryWtypeThenPaste();
         if (ok) {
             if (puntoDebugEnabled()) {
-                std::cerr << "punto-switcher-daemon: text inject ok"
+                std::cerr << "rocket-switcher-daemon: text inject ok"
                           << (attempt > 0 ? " (after retry)\n" : "\n")
                           << std::flush;
             }
@@ -672,304 +642,6 @@ bool PuntoDaemon::injectText(const std::string& utf8) {
         }
     }
     return false;
-}
-
-void PuntoDaemon::applyLayoutForWord(CharMapping::Layout typedLayout) {
-    if (typedLayout == CharMapping::Layout::Russian) { layout_.setEnglish(); daemonSwitchedLayout_ = true; }
-    else if (typedLayout == CharMapping::Layout::English) { layout_.setRussian(); daemonSwitchedLayout_ = true; }
-}
-
-bool PuntoDaemon::checkAutoSwitch(const std::string& word, const std::string& boundaryUtf8) {
-    if (tracker_.isCurrentTokenFrozen()) return false;
-
-    const std::u32string w32   = utf8_to_utf32(word);
-    CharMapping::Layout layout = CharMapping::dominantLayout(w32);
-
-    // Leading "," or "." typed in EN layout + RU letters (wrong layout on first key only).
-    const std::u32string jcukenFixed = CharMapping::normalizeJcukenMixedPrefix(w32);
-    if (jcukenFixed != w32) {
-        const std::string fixedUtf8 = utf32_to_utf8(jcukenFixed);
-        const int       wordCpCount   = static_cast<int>(w32.size());
-        tracker_.undoPrevLayout       = layout;
-        tracker_.undoOriginalTextUtf8 = word;
-        tracker_.undoSwappedTextUtf8  = fixedUtf8;
-        tracker_.undoSwappedCpCount   = static_cast<int>(jcukenFixed.size());
-        InternalGuard g(&tracker_);
-        tapBackspaces(wordCpCount);
-        if (!injectText(fixedUtf8)) {
-            std::cerr << "punto-switcher-daemon: inject failed (JCUKEN mixed-prefix fix)\n";
-            if (!injectText(word)) {
-                std::cerr << "punto-switcher-daemon: could not restore word after failed inject\n";
-            }
-            tracker_.undoPrevLayout.reset();
-            tracker_.undoOriginalTextUtf8.reset();
-            tracker_.undoSwappedTextUtf8.reset();
-            tracker_.undoSwappedCpCount = 0;
-            return false;
-        }
-        tracker_.freezeCurrentToken();
-        tracker_.wordBuffer = fixedUtf8;
-        layout_.setRussian();
-        daemonSwitchedLayout_ = true;
-        return false;
-    }
-
-    // Hard force path for mistyped URL scheme: "реезыЖ." -> "https:/", then next '.' -> '/'.
-    // Keep this path independent of heuristic scores so URL typing is deterministic.
-    {
-        std::string inv = utf32_to_utf8(CharMapping::invertLayoutWord(w32));
-        std::string invLower = toLowerAsciiCopy(inv);
-        if (layout == CharMapping::Layout::Russian
-            && boundaryUtf8 == "."
-            && (invLower == "http:" || invLower == "https:" || invLower == "ftp:")) {
-            const int wordCpCount = static_cast<int>(w32.size());
-            pendingUrlSecondSlash_ = true;
-            tracker_.undoPrevLayout       = layout;
-            tracker_.undoOriginalTextUtf8 = word;
-            tracker_.undoSwappedTextUtf8  = inv + "/";
-            tracker_.undoSwappedCpCount   = utf8_to_utf32(inv + "/").size();
-            InternalGuard g(&tracker_);
-            tapBackspaces(wordCpCount);
-            if (!injectText(inv + "/")) return false;
-            tracker_.freezeCurrentToken();
-            tracker_.wordBuffer = inv + "/";
-            layout_.setEnglish();
-            daemonSwitchedLayout_ = true;
-            return true;
-        }
-    }
-
-    // Mirror AutoSwitchHeuristic "plausible dominant script" guard here so we never run
-    // backspace+inject when the word already fits the active language model — even if
-    // layout_.currentLayoutIndex() is unknown (no DBus) or shouldSwitch regresses. Stops
-    // "привет deleted then pasted привет" when inject(swapped) fails and restore(original) runs.
-    const double ruRatio = CharMapping::russianLetterRatio(w32);
-    const double enRatio = CharMapping::englishLetterRatio(w32);
-    if (layout == CharMapping::Layout::Russian && ruRatio >= 0.85 && enRatio <= 0.05) {
-        const double scO = AutoSwitchHeuristic::bigramScore(w32, CharMapping::Layout::Russian);
-        const double scS = AutoSwitchHeuristic::bigramScore(
-            CharMapping::invertLayoutWord(w32), CharMapping::Layout::English);
-        if (scO >= cfg_.minPlausibleDominantBigramScore
-            && scS <= scO + cfg_.confidenceThreshold) {
-            if (puntoDebugEnabled()) {
-                std::cerr << "punto-switcher-daemon: checkAutoSwitch skip (plausible RU word)\n"
-                          << std::flush;
-            }
-            return false;
-        }
-    }
-    if (layout == CharMapping::Layout::English && enRatio >= 0.85 && ruRatio <= 0.05) {
-        if (!AutoSwitchHeuristic::isEnLayoutJcukenLeadPunctWord(w32)) {
-            const double scO = AutoSwitchHeuristic::bigramScore(w32, CharMapping::Layout::English);
-            const double scS = AutoSwitchHeuristic::bigramScore(
-                CharMapping::invertLayoutWord(w32), CharMapping::Layout::Russian);
-            if (scO >= cfg_.minPlausibleDominantBigramScore
-                && scS <= scO + cfg_.confidenceThreshold) {
-                if (puntoDebugEnabled()) {
-                    std::cerr << "punto-switcher-daemon: checkAutoSwitch skip (plausible EN word)\n"
-                              << std::flush;
-                }
-                return false;
-            }
-        }
-    }
-
-    // NOTE: The hard "Cyrillic + KDE RU layout group" guard that was here has been removed.
-    // It blocked conversion of non-words like "руддщ" (= "hello" typed on RU layout) even
-    // though they are not plausible Russian.  The plausible-script bigram guard above already
-    // correctly passes "привет" (high RU bigram score → skip) and lets "руддщ" through.
-
-    const bool doSwitch = heuristic_.shouldSwitch(word, layout);
-    if (puntoDebugEnabled()) {
-        std::cerr << "punto-switcher-daemon: checkAutoSwitch word=\"" << word << "\" shouldSwitch="
-                  << (doSwitch ? "yes" : "no") << "\n"
-                  << std::flush;
-    }
-    if (!doSwitch) return false;
-
-    std::string swapped = CharMapping::swapWord(word);
-    if (swapped == word) return false;
-
-    int wordCpCount = static_cast<int>(utf8_to_utf32(word).size());
-
-    tracker_.undoPrevLayout         = layout;
-    tracker_.undoOriginalTextUtf8   = word;
-    tracker_.undoSwappedTextUtf8    = swapped;
-    const std::string swappedLower = toLowerAsciiCopy(swapped);
-    const bool urlSchemePrefix =
-        (layout == CharMapping::Layout::Russian)
-        && (swappedLower == "http:" || swappedLower == "https:" || swappedLower == "ftp:")
-        && boundaryUtf8 == ".";
-    if (urlSchemePrefix) pendingUrlSecondSlash_ = true;
-
-    tracker_.undoSwappedCpCount     = utf8_to_utf32(urlSchemePrefix ? (swapped + "/") : swapped).size();
-
-    InternalGuard g(&tracker_);
-    tapBackspaces(wordCpCount);
-    if (!injectText(urlSchemePrefix ? (swapped + "/") : swapped)) {
-        std::cerr << "punto-switcher-daemon: inject failed (wtype + wl-copy) — restoring word\n";
-        if (!injectText(word)) {
-            std::cerr << "punto-switcher-daemon: could not restore word after failed inject\n";
-        }
-        tracker_.undoPrevLayout.reset();
-        tracker_.undoOriginalTextUtf8.reset();
-        tracker_.undoSwappedTextUtf8.reset();
-        tracker_.undoSwappedCpCount = 0;
-        return false;
-    }
-    tracker_.freezeCurrentToken();
-    // Update wordBuffer to the swapped text so that the upcoming tracker_.onBoundary()
-    // (called by processEvent right after checkAutoSwitch returns) records lastWord = swapped.
-    // Without this, lastWord stays "ghbdtn" (the original), and a subsequent manual Alt+'
-    // would swap "ghbdtn" → "привет" again — a visual no-op that deletes the trailing space.
-    // With the fix, lastWord = "привет" and Alt+' correctly reverts to "ghbdtn".
-    tracker_.wordBuffer = urlSchemePrefix ? (swapped + "/") : swapped;
-
-    if (layout == CharMapping::Layout::Russian) { layout_.setEnglish(); daemonSwitchedLayout_ = true; }
-    else if (layout == CharMapping::Layout::English) { layout_.setRussian(); daemonSwitchedLayout_ = true; }
-    return urlSchemePrefix;
-}
-
-bool PuntoDaemon::doSwapLastWord() {
-    if (!tracker_.wordBuffer.empty()) {
-        const std::string original = tracker_.wordBuffer;
-        std::string swapped        = CharMapping::swapWord(original);
-        if (swapped == original) return false;
-
-        CharMapping::Layout typedLayout = CharMapping::dominantLayout(utf8_to_utf32(original));
-        int cpCount                     = static_cast<int>(utf8_to_utf32(original).size());
-
-        tracker_.undoPrevLayout       = typedLayout;
-        tracker_.undoOriginalTextUtf8 = original;
-        tracker_.undoSwappedTextUtf8  = swapped;
-        tracker_.undoSwappedCpCount   = utf8_to_utf32(swapped).size();
-
-        InternalGuard g(&tracker_);
-        tapBackspaces(cpCount);
-        if (!injectText(swapped)) {
-            std::cerr << "punto-switcher-daemon: failed to type swapped text; restoring\n";
-            (void)injectText(original);
-            tracker_.undoPrevLayout.reset();
-            tracker_.undoOriginalTextUtf8.reset();
-            tracker_.undoSwappedTextUtf8.reset();
-            tracker_.undoSwappedCpCount = 0;
-            return false;
-        }
-        applyLayoutForWord(typedLayout);
-        tracker_.reset(/*clearUndo=*/false);
-        // Keep lastWord so Alt+' can be pressed repeatedly (toggle).
-        tracker_.lastWord       = swapped;
-        tracker_.lastWordByteSize = static_cast<int>(utf8_to_utf32(swapped).size());
-        tracker_.lastBoundaryUtf8.clear();
-        tracker_.freezeCurrentToken();
-        return true;
-    }
-
-    if (!tracker_.lastWord.empty()) {
-        const std::string& original = tracker_.lastWord;
-        std::string swapped       = CharMapping::swapWord(original);
-        if (swapped == original) return false;
-
-        CharMapping::Layout typedLayout = CharMapping::dominantLayout(utf8_to_utf32(original));
-        int wordCp                      = static_cast<int>(utf8_to_utf32(original).size());
-        // If we don't have a stored boundary (empty string), then previous manual swaps already
-        // removed the boundary character from the text. In that case deleting 1 extra char would
-        // break repeated toggles.
-        int boundaryCp = tracker_.lastBoundaryUtf8.empty() ? 0 : static_cast<int>(utf8_length(tracker_.lastBoundaryUtf8));
-
-        tracker_.undoPrevLayout       = typedLayout;
-        tracker_.undoOriginalTextUtf8 = original;
-        tracker_.undoSwappedTextUtf8  = swapped;
-        tracker_.undoSwappedCpCount   = utf8_to_utf32(swapped).size();
-
-        InternalGuard g(&tracker_);
-        tapBackspaces(wordCp + boundaryCp);
-        if (!injectText(swapped)) {
-            std::string restore = original;
-            if (!tracker_.lastBoundaryUtf8.empty()) restore += tracker_.lastBoundaryUtf8;
-            (void)injectText(restore);
-            tracker_.undoPrevLayout.reset();
-            tracker_.undoOriginalTextUtf8.reset();
-            tracker_.undoSwappedTextUtf8.reset();
-            tracker_.undoSwappedCpCount = 0;
-            return false;
-        }
-        applyLayoutForWord(typedLayout);
-        tracker_.reset(/*clearUndo=*/false);
-        // Keep lastWord so Alt+' can be pressed repeatedly (toggle).
-        tracker_.lastWord       = swapped;
-        tracker_.lastWordByteSize = static_cast<int>(utf8_to_utf32(swapped).size());
-        tracker_.lastBoundaryUtf8.clear(); // boundary char was deleted by tapBackspaces if it existed
-        tracker_.freezeCurrentToken();
-        return true;
-    }
-
-    return false;
-}
-
-bool PuntoDaemon::doSwapSelection() {
-    ensureSessionEnvFromParents();
-
-    // Release Alt/Shift if they're still physically held so Ctrl+C works as plain copy.
-    if (keyState_[KEY_LEFTALT]) io_.emitKey(KEY_LEFTALT, 0);
-    if (keyState_[KEY_RIGHTALT]) io_.emitKey(KEY_RIGHTALT, 0);
-    if (keyState_[KEY_LEFTSHIFT]) io_.emitKey(KEY_LEFTSHIFT, 0);
-    if (keyState_[KEY_RIGHTSHIFT]) io_.emitKey(KEY_RIGHTSHIFT, 0);
-    io_.sync();
-
-    // Copy current selection to clipboard.
-    io_.emitKey(KEY_LEFTCTRL, 1);
-    io_.emitKey(KEY_C, 1);
-    io_.emitKey(KEY_C, 0);
-    io_.emitKey(KEY_LEFTCTRL, 0);
-    io_.sync();
-    ::usleep(20000);
-
-    // Read clipboard (Wayland).
-    std::string selected;
-    {
-        FILE* p = popen("timeout 0.2s /usr/bin/wl-paste -n 2>/dev/null", "r");
-        if (p) {
-            char buf[4096];
-            while (fgets(buf, sizeof(buf), p)) {
-                selected += buf;
-            }
-            (void)pclose(p);
-        }
-    }
-
-    // Trim trailing whitespace/newlines (wl-paste -n should already avoid newline, but be safe).
-    while (!selected.empty() && (selected.back() == '\n' || selected.back() == '\r' || selected.back() == ' ' ||
-                                 selected.back() == '\t'))
-        selected.pop_back();
-
-    if (selected.empty()) return false;
-
-    // Keep it simple: swap only when selection looks like a single token.
-    // (If it contains spaces/newlines, we bail out to avoid partial unexpected replacements.)
-    if (selected.find_first_of(" \t\r\n") != std::string::npos) return false;
-
-    std::string swapped = CharMapping::swapWord(selected);
-    if (swapped == selected) return false;
-
-    CharMapping::Layout typedLayout = CharMapping::dominantLayout(utf8_to_utf32(selected));
-    tracker_.undoPrevLayout           = typedLayout;
-    tracker_.undoOriginalTextUtf8   = selected;
-    tracker_.undoSwappedTextUtf8     = swapped;
-    tracker_.undoSwappedCpCount     = utf8_to_utf32(swapped).size();
-
-    InternalGuard g(&tracker_);
-    if (!injectText(swapped)) {
-        tracker_.undoPrevLayout.reset();
-        tracker_.undoOriginalTextUtf8.reset();
-        tracker_.undoSwappedTextUtf8.reset();
-        tracker_.undoSwappedCpCount = 0;
-        return false;
-    }
-
-    tracker_.reset(/*clearUndo=*/false);
-    tracker_.freezeCurrentToken();
-    return true;
 }
 
 void PuntoDaemon::doToggleAutoSwitch() {
@@ -981,26 +653,9 @@ void PuntoDaemon::doToggleAutoSwitch() {
     h.confidenceThreshold               = cfg_.confidenceThreshold;
     h.minPlausibleDominantBigramScore   = cfg_.minPlausibleDominantBigramScore;
     heuristic_.setConfig(h);
-    std::cerr << "punto-switcher-daemon: AutoSwitch " << (cfg_.autoSwitchEnabled ? "ON" : "OFF") << "\n";
+    std::cerr << "rocket-switcher-daemon: AutoSwitch " << (cfg_.autoSwitchEnabled ? "ON" : "OFF") << "\n";
 }
 
-bool PuntoDaemon::doUndoLast() {
-    bool did = false;
-    if (tracker_.undoPrevLayout.has_value()) {
-        layout_.setForCharLayout(*tracker_.undoPrevLayout);
-        did = true;
-    }
-    if (tracker_.undoOriginalTextUtf8 && tracker_.undoSwappedTextUtf8) {
-        InternalGuard g(&tracker_);
-        for (size_t i = 0; i < tracker_.undoSwappedCpCount; ++i) {
-            io_.emitKey(KEY_BACKSPACE, 1);
-            io_.emitKey(KEY_BACKSPACE, 0);
-        }
-        if (injectText(*tracker_.undoOriginalTextUtf8)) did = true;
-    }
-    tracker_.reset(/*clearUndo=*/true);
-    return did;
-}
 
 void PuntoDaemon::processEvent(const input_event& ev) {
     if (ev.type != EV_KEY) {
@@ -1015,7 +670,7 @@ void PuntoDaemon::processEvent(const input_event& ev) {
     if (val != 0) lastInputEventAt_ = std::chrono::steady_clock::now();
 
     if (puntoDebugEnabled() && (val == 1 || val == 2)) {
-        std::fprintf(stderr, "punto-switcher-daemon: EV_KEY code=%u value=%d\n", code, val);
+        std::fprintf(stderr, "rocket-switcher-daemon: EV_KEY code=%u value=%d\n", code, val);
         std::fflush(stderr);
     }
 
@@ -1103,7 +758,7 @@ void PuntoDaemon::processEvent(const input_event& ev) {
             // causes endless Enter repeats (new lines). Stop it proactively.
             if (enterRepeatCount_ > 30) {
                 if (puntoDebugEnabled()) {
-                    std::cerr << "punto-switcher-daemon: enter repeat storm detected, forcing key-up\n"
+                    std::cerr << "rocket-switcher-daemon: enter repeat storm detected, forcing key-up\n"
                               << std::flush;
                 }
                 keyState_[KEY_ENTER] = 0;
@@ -1125,7 +780,7 @@ void PuntoDaemon::processEvent(const input_event& ev) {
                 }
                 if (letterRepeatCount_ > 45) {
                     if (puntoDebugEnabled()) {
-                        std::cerr << "punto-switcher-daemon: letter repeat storm, forcing key-up code="
+                        std::cerr << "rocket-switcher-daemon: letter repeat storm, forcing key-up code="
                                   << code << "\n"
                                   << std::flush;
                     }
@@ -1142,14 +797,12 @@ void PuntoDaemon::processEvent(const input_event& ev) {
             io_.forward(ev);
             return;
         }
+        noteRepeat(code);
         io_.forward(ev);
         return;
     }
     if (code == KEY_ENTER && val == 0) enterRepeatCount_ = 0;
     if (val == 0 && isLatinLetterEvdevKey(code) && letterRepeatCode_ == code) letterRepeatCount_ = 0;
-
-    enum xkb_key_direction dir =
-        (val == 0) ? XKB_KEY_UP : XKB_KEY_DOWN;
 
     // Detect modifier-only sequences (Ctrl+Shift, Alt+Shift, …) that are likely layout-switch
     // shortcuts.  KDE processes the uinput modifier events on its own event loop and updates
@@ -1180,8 +833,9 @@ void PuntoDaemon::processEvent(const input_event& ev) {
                 // global layout index via the virtual keyboard component.
                 ::usleep(15000);
                 pendingLayoutRefresh_ = false;
+                noteLayout(syncXkbLayoutFromKde());
                 if (puntoDebugEnabled()) {
-                    std::cerr << "punto-switcher-daemon: layout refresh delay (post modifier-only seq)\n"
+                    std::cerr << "rocket-switcher-daemon: layout refresh delay (post modifier-only seq)\n"
                               << std::flush;
                 }
             }
@@ -1189,153 +843,70 @@ void PuntoDaemon::processEvent(const input_event& ev) {
         }
     }
 
-    const int curLayout = syncXkbLayoutFromKde();
-    // If KDE's active layout group changed, discard the current partial word: characters typed
-    // before the switch were decoded with the old layout and must not be mixed with new ones.
-    // Exception: if the daemon itself triggered the layout change (after an auto-switch), keep
-    // the tracker intact so that lastWord is available for a subsequent manual Alt+' hotkey.
-    if (curLayout >= 0 && curLayout != lastKnownLayoutIndex_) {
-        if (lastKnownLayoutIndex_ >= 0) {
-            if (daemonSwitchedLayout_) {
-                // Daemon-initiated layout change — preserve lastWord for manual swap hotkey.
-                daemonSwitchedLayout_ = false;
-                if (puntoDebugEnabled()) {
-                    std::cerr << "punto-switcher-daemon: layout changed " << lastKnownLayoutIndex_
-                              << " → " << curLayout << " (daemon-initiated, tracker preserved)\n"
-                              << std::flush;
-                }
-            } else {
-                tracker_.reset();
-                if (puntoDebugEnabled()) {
-                    std::cerr << "punto-switcher-daemon: layout changed " << lastKnownLayoutIndex_
-                              << " → " << curLayout << ", wordBuffer reset\n" << std::flush;
-                }
-            }
-        }
-        lastKnownLayoutIndex_ = curLayout;
+    if (val == 0) {
+        if (xkbState_) xkb_state_update_key(xkbState_, code + 8, XKB_KEY_UP);
+        io_.forward(ev);
+        return;
     }
-    xkb_state_update_key(xkbState_, code + 8, dir);
+
+    if (xkbState_) xkb_state_update_key(xkbState_, code + 8, XKB_KEY_DOWN);
     if (xkbState_) {
         capsLockOn_ =
             xkb_state_mod_name_is_active(xkbState_, XKB_MOD_NAME_CAPS, XKB_STATE_MODS_EFFECTIVE) != 0;
     }
 
-    if (val == 1) {
-        const bool isModKeyPress = (code == KEY_LEFTCTRL  || code == KEY_RIGHTCTRL  ||
-                                    code == KEY_LEFTSHIFT || code == KEY_RIGHTSHIFT ||
-                                    code == KEY_LEFTALT   || code == KEY_RIGHTALT   ||
-                                    code == KEY_LEFTMETA  || code == KEY_RIGHTMETA);
-        if (!isModKeyPress) recoverStuckModifiersFromXkb();
-        if (code == KEY_BACKSPACE || code == KEY_DELETE) {
-            tracker_.reset();
-            io_.forward(ev);
-            return;
-        }
+    const bool isModKeyPress = (code == KEY_LEFTCTRL  || code == KEY_RIGHTCTRL  ||
+                                code == KEY_LEFTSHIFT || code == KEY_RIGHTSHIFT ||
+                                code == KEY_LEFTALT   || code == KEY_RIGHTALT   ||
+                                code == KEY_LEFTMETA  || code == KEY_RIGHTMETA);
+    if (isModKeyPress) {
+        io_.forward(ev);
+        return;
+    }
+    recoverStuckModifiersFromXkb();
 
-        bool ctrl  = keyState_[KEY_LEFTCTRL] || keyState_[KEY_RIGHTCTRL];
-        bool alt   = keyState_[KEY_LEFTALT] || keyState_[KEY_RIGHTALT];
-        bool super = keyState_[KEY_LEFTMETA] || keyState_[KEY_RIGHTMETA];
-        if (ctrl || alt || super) {
-            io_.forward(ev);
-            return;
-        }
-
-        char buf[128];
-        int  n = xkb_state_key_get_utf8(xkbState_, code + 8, buf, sizeof(buf));
-        if (n <= 0) {
-            if (puntoDebugEnabled()) {
-                std::fprintf(stderr, "punto-switcher-daemon: xkb utf8 empty for evcode=%u (layout sync?)\n", code);
-                std::fflush(stderr);
-            }
-            io_.forward(ev);
-            return;
-        }
-
-        std::string utf8(buf, static_cast<size_t>(n));
-        std::u32string u32 = utf8_to_utf32(utf8);
-        if (u32.empty()) {
-            io_.forward(ev);
-            return;
-        }
-        if (isSuspiciousControlUtf8(u32)) {
-            // Self-heal: xkb can keep Ctrl depressed after shortcut storms (paste + undo),
-            // producing control bytes for normal letters. Clear transient mods and retry.
-            clearTransientXkbMods(xkbState_, curLayout);
-            n = xkb_state_key_get_utf8(xkbState_, code + 8, buf, sizeof(buf));
-            if (n > 0) {
-                utf8 = std::string(buf, static_cast<size_t>(n));
-                u32 = utf8_to_utf32(utf8);
-            }
-        }
-        char32_t ch = u32[0];
-
-        // Latin ↔ Cyrillic without a typed space: finish the previous word so we never
-        // merge "hello" and "привет" into one token (garbled autoswitch / Alt+' targets).
-        // Do not run checkAutoSwitch here: short tokens (e.g. "e") + inject/backspace caused
-        // repeated inserts; autoswitch still runs on real boundaries (space, punct, Enter).
-        if (WordSwapper::shouldSplitScriptBeforeAddChar(tracker_.wordBuffer, ch)) {
-            tracker_.onBoundary(std::string());
-        }
-
-        bool prevIsLetter = false;
-        if (!tracker_.wordBuffer.empty()) {
-            std::u32string wb32 = utf8_to_utf32(tracker_.wordBuffer);
-            if (!wb32.empty()) {
-                const char32_t prev = wb32.back();
-                prevIsLetter = CharMapping::isEnglish(prev) || CharMapping::isRussian(prev);
-            }
-        }
-        bool forceDotBoundaryForUrlPrefix = false;
-        if (!pendingUrlSecondSlash_ && ch == U'.' && !tracker_.wordBuffer.empty()) {
-            std::string invPrefix = utf32_to_utf8(CharMapping::invertLayoutWord(utf8_to_utf32(tracker_.wordBuffer)));
-            invPrefix = toLowerAsciiCopy(invPrefix);
-            forceDotBoundaryForUrlPrefix =
-                (invPrefix == "http:" || invPrefix == "https:" || invPrefix == "ftp:");
-        }
-        if (WordSwapper::isWordBoundaryForTracker(ch, tracker_.wordBuffer.empty(),
-                                                  prevIsLetter,
-                                                  pendingUrlSecondSlash_ || forceDotBoundaryForUrlPrefix)) {
-            if (puntoDebugEnabled()) {
-                std::cerr << "punto-switcher-daemon: word boundary buf=\"" << tracker_.wordBuffer << "\"\n"
-                          << std::flush;
-            }
-            bool consumeBoundary = false;
-            if (pendingUrlSecondSlash_ && (utf8 == "." || utf8 == "/")) {
-                // Second boundary in patterns like "реезыЖ..": make it '/' and swallow.
-                // We also inject explicitly, because returning early alone only prevents forwarding.
-                pendingUrlSecondSlash_ = false;
-                tracker_.onBoundary("/");
-                (void)injectText("/");
-                return;
-            }
-            if (!tracker_.wordBuffer.empty() && !tracker_.isCurrentTokenFrozen())
-                consumeBoundary = checkAutoSwitch(tracker_.wordBuffer, utf8);
-            // Safety rule: never swallow plain space. Even if autoswitch consumes a boundary
-            // in some edge path, users must always get a physical space in apps.
-            if (utf8 == " ") consumeBoundary = false;
-            tracker_.onBoundary(consumeBoundary ? std::string("/") : utf8);
-            if (consumeBoundary) return;
-        } else {
-            pendingUrlSecondSlash_ = false;
-            if (puntoDebugEnabled()) {
-                std::cerr << "punto-switcher-daemon: key utf8=\"" << utf8 << "\" evcode=" << code
-                          << " val=" << val << "\n"
-                          << std::flush;
-            }
-            // Guard against occasional stale uppercase decode right after hotkeys/layout races:
-            // when Shift is not physically held and CapsLock is inactive, normalize letters to lower.
-            const bool shiftDown = keyState_[KEY_LEFTSHIFT] || keyState_[KEY_RIGHTSHIFT];
-            if (!shiftDown && !capsLockOn_ && u32.size() == 1) {
-                char32_t c = u32[0];
-                if (isRuUpperLetter(c) || isEnUpperLetter(c)) {
-                    u32[0] = toLowerLetter(c);
-                    utf8 = utf32_to_utf8(u32);
-                }
-            }
-            tracker_.addChar(utf8);
-        }
+    const bool ctrl  = keyState_[KEY_LEFTCTRL] || keyState_[KEY_RIGHTCTRL];
+    const bool alt   = keyState_[KEY_LEFTALT] || keyState_[KEY_RIGHTALT];
+    const bool super = keyState_[KEY_LEFTMETA] || keyState_[KEY_RIGHTMETA];
+    const bool nav   = code == KEY_LEFT || code == KEY_RIGHT || code == KEY_UP || code == KEY_DOWN
+                       || code == KEY_HOME || code == KEY_END || code == KEY_PAGEUP
+                       || code == KEY_PAGEDOWN || code == KEY_ESC;
+    if (nav || code == KEY_DELETE
+        || (ctrl && (code == KEY_BACKSPACE || code == KEY_V || code == KEY_X || code == KEY_Z || code == KEY_A))) {
+        forgetTyping();
+        io_.forward(ev);
+        return;
+    }
+    if (code == KEY_BACKSPACE) {
+        noteBackspace();
+        io_.forward(ev);
+        return;
+    }
+    if (ctrl || alt || super) {
+        io_.forward(ev);
+        return;
     }
 
+    if (lastKnownLayoutIndex_ < 0) noteLayout(syncXkbLayoutFromKde());
+
+    const Keystroke ks = makeKeystroke(code);
+    const int lay = (!wordKeys_.empty() && wordLayout_ >= 0) ? wordLayout_ : lastKnownLayoutIndex_;
+    if (lay < 0) {
+        io_.forward(ev);
+        return;
+    }
+    const KeyRole role = classifyKey(ks, lay);
+    if (role == KeyRole::Boundary) {
+        // On a real conversion the separator is retyped for the new layout.
+        // Otherwise the original key is forwarded, including every plain space.
+        if (onWordBoundary(ks)) return;
+        io_.forward(ev);
+        return;
+    }
+    if (role == KeyRole::Word) {
+        if (wordKeys_.empty()) wordLayout_ = lay;
+        noteWordKey(ks);
+    }
     io_.forward(ev);
 }
 
@@ -1345,12 +916,12 @@ int PuntoDaemon::run() {
     (void)std::signal(SIGINT, handleStopSignal);
 
     if (!setupXkb()) {
-        std::cerr << "punto-switcher-daemon: xkbcommon init failed\n";
+        std::cerr << "rocket-switcher-daemon: xkbcommon init failed\n";
         return 1;
     }
 
     if (!io_.init(cfg_.devicePath)) {
-        std::cerr << "punto-switcher-daemon: evdev/uinput init failed (see messages above; input group, udev, modprobe uinput)\n";
+        std::cerr << "rocket-switcher-daemon: evdev/uinput init failed (see messages above; input group, udev, modprobe uinput)\n";
         teardownXkb();
         return 1;
     }
@@ -1361,20 +932,27 @@ int PuntoDaemon::run() {
     }
 
     seedCapsLockFromHardware();
+    noteLayout(syncXkbLayoutFromKde());
+    openMice();
 
     logResolvedHotkeys();
+    {
+        const WordDictionary& dict = WordDictionary::instance();
+        std::cerr << "rocket-switcher-daemon: dictionary en=" << dict.englishSize()
+                  << " ru=" << dict.russianSize() << "\n";
+    }
 
-    std::cerr << "punto-switcher-daemon: running (grabbed " << io_.devices().size()
+    std::cerr << "rocket-switcher-daemon: running (grabbed " << io_.devices().size()
               << " keyboard(s)). Stop with Ctrl+C.\n";
     if (cfg_.passthroughOnly) {
-        std::cerr << "punto-switcher-daemon: passthrough mode — swap/autoswitch disabled; keys forwarded only\n";
+        std::cerr << "rocket-switcher-daemon: passthrough mode — swap/autoswitch disabled; keys forwarded only\n";
     }
     if (puntoDebugEnabled()) {
-        std::cerr << "punto-switcher-daemon: debug on — EV_KEY lines + utf8; or run: punto-switcher-daemon --debug\n"
+        std::cerr << "rocket-switcher-daemon: debug on — EV_KEY lines + utf8; or run: rocket-switcher-daemon --debug\n"
                   << std::flush;
     }
     if (!std::getenv("DBUS_SESSION_BUS_ADDRESS")) {
-        std::cerr << "punto-switcher-daemon: warning: DBUS_SESSION_BUS_ADDRESS unset — KDE layout sync/switch "
+        std::cerr << "rocket-switcher-daemon: warning: DBUS_SESSION_BUS_ADDRESS unset — KDE layout sync/switch "
                       "will not work. With sg(1), export it from your session before sg (see loginctl show-session).\n";
     }
 
@@ -1387,13 +965,13 @@ int PuntoDaemon::run() {
     while (!gStopRequested) {
         const auto& devs = io_.devices();
         if (devs.empty()) {
-            std::cerr << "punto-switcher-daemon: no input devices opened, trying to reinitialize...\n";
+            std::cerr << "rocket-switcher-daemon: no input devices opened, trying to reinitialize...\n";
             ::usleep(500000);
             if (!io_.init(cfg_.devicePath)) {
                 ++consecutiveNoDeviceInits;
                 // Let systemd restart from a clean process after prolonged no-device state.
                 if (consecutiveNoDeviceInits >= 20) {
-                    std::cerr << "punto-switcher-daemon: could not open any keyboard for 10s, exiting for systemd restart\n";
+                    std::cerr << "rocket-switcher-daemon: could not open any keyboard for 10s, exiting for systemd restart\n";
                     teardownXkb();
                     return 1;
                 }
@@ -1432,11 +1010,15 @@ int PuntoDaemon::run() {
                 continue;
             }
         }
-        std::vector<struct pollfd> pfds(devs.size());
+        std::vector<struct pollfd> pfds(devs.size() + mouseFds_.size());
         bool needReinitAfterDeviceLoss = false;
         for (size_t i = 0; i < devs.size(); ++i) {
             pfds[i].fd     = libevdev_get_fd(devs[i]);
             pfds[i].events = POLLIN;
+        }
+        for (size_t i = 0; i < mouseFds_.size(); ++i) {
+            pfds[devs.size() + i].fd     = mouseFds_[i];
+            pfds[devs.size() + i].events = POLLIN;
         }
         const double bootBeforePoll = monotonicBootSeconds();
         const int    pollRes        = poll(pfds.data(), pfds.size(), 2000);
@@ -1504,7 +1086,7 @@ int PuntoDaemon::run() {
 
         for (size_t i = 0; i < devs.size(); ++i) {
             if (pfds[i].revents & (POLLERR | POLLHUP | POLLNVAL)) {
-                std::cerr << "punto-switcher-daemon: poll reports device error/hup (revents="
+                std::cerr << "rocket-switcher-daemon: poll reports device error/hup (revents="
                           << pfds[i].revents << "), exiting for systemd restart\n";
                 needReinitAfterDeviceLoss = true;
                 break;
@@ -1517,13 +1099,13 @@ int PuntoDaemon::run() {
                 if (rc < 0) {
                     if (rc == -EAGAIN || rc == -EWOULDBLOCK) break;
                     if (rc == -ENODEV || rc == -EIO || rc == -ENXIO) {
-                        std::cerr << "punto-switcher-daemon: input device became unavailable (rc=" << rc
+                        std::cerr << "rocket-switcher-daemon: input device became unavailable (rc=" << rc
                                   << "), exiting for systemd restart\n";
                         needReinitAfterDeviceLoss = true;
                         break;
                     }
                     if (puntoDebugEnabled()) {
-                        std::cerr << "punto-switcher-daemon: libevdev_next_event rc=" << rc << "\n"
+                        std::cerr << "rocket-switcher-daemon: libevdev_next_event rc=" << rc << "\n"
                                   << std::flush;
                     }
                     break;
@@ -1540,8 +1122,15 @@ int PuntoDaemon::run() {
             }
             if (needReinitAfterDeviceLoss) break;
         }
+        if (!needReinitAfterDeviceLoss) {
+            bool mouseReady = false;
+            for (size_t i = devs.size(); i < pfds.size(); ++i) {
+                if (pfds[i].revents & POLLIN) mouseReady = true;
+            }
+            if (mouseReady) drainMice();
+        }
         if (needReinitAfterDeviceLoss) {
-            std::cerr << "punto-switcher-daemon: input device lost or hup, reinitializing\n" << std::flush;
+            std::cerr << "rocket-switcher-daemon: input device lost or hup, reinitializing\n" << std::flush;
             if (!reinitKeyboardDevices("input device lost or error, reinitializing")) {
                 releaseAllDownKeys();
                 teardownXkb();
@@ -1561,6 +1150,7 @@ int PuntoDaemon::run() {
     // Graceful stop path (systemctl stop / SIGTERM): release any held keys first
     // so Enter/Shift/etc. never remain logically pressed after daemon shutdown.
     releaseAllDownKeys();
+    closeMice();
     io_.shutdown();
     teardownXkb();
     return 0;

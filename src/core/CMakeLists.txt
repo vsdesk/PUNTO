@@ -2,6 +2,7 @@ add_library(punto-core STATIC
     CharMapping.cpp
     WordSwapper.cpp
     AutoSwitchHeuristic.cpp
+    WordDictionary.cpp
 )
 
 target_include_directories(punto-core

@@ -1,13 +1,13 @@
-# Punto Switcher for Linux/Wayland
+# Ракета
 
-Автоматическое переключение раскладки **ru↔en** в стиле Punto Switcher для
-**Wayland** через **`punto-switcher-daemon`** (evdev/uinput) и GUI
-`punto-switcher-config`.
+Автоматическое переключение раскладки **ru↔en** для **Wayland** через
+**`rocket-switcher-daemon`** (evdev/uinput) и окно настроек
+`rocket-switcher-config`.
 
 ### Кому не подходит
 
 Если вам нельзя запускать daemon с доступом к `input/uinput`, этот репозиторий
-не подойдёт. Текущая рабочая реализация — именно `punto-switcher-daemon`
+не подойдёт. Текущая рабочая реализация — именно `rocket-switcher-daemon`
 (глобальные hotkeys и автосвитч через evdev/uinput), а не только IME-модуль.
 
 ---
@@ -45,7 +45,7 @@ punto-switcher/
 │       ├── main.cpp
 │       ├── MainWindow.h/.cpp   # Главное окно (tabs: Hotkeys / Auto-Switch / Debug)
 │       ├── HotkeyEditor.h/.cpp # Виджет записи клавиатурного сочетания
-│       └── punto-switcher-config.desktop.in
+│       └── rocket-switcher-config.desktop.in
 ├── tests/                      # GTest unit-тесты
 │   ├── test_mapping.cpp        # CharMapping: все 33 символа, регистры, round-trip
 │   ├── test_swapper.cpp        # WordSwapper: границы слов, selection, round-trip
@@ -155,7 +155,7 @@ punto-switcher/
 
 **Конфликты:** если системный хоткей перехватывается раньше daemon
 (например, глобальный shortcut KWin), действие Punto не сработает.
-Проверяйте логи через `journalctl --user | grep -i punto-switcher-daemon`.
+Проверяйте логи через `journalctl --user | grep -i rocket-switcher-daemon`.
 
 ---
 
@@ -323,14 +323,14 @@ sudo dnf install dist/punto-switcher-*.rpm
 Проверка:
 
 ```bash
-pgrep -af punto-switcher-daemon
+pgrep -af rocket-switcher-daemon
 ```
 
 Ручное управление:
 
 ```bash
-punto-switcher-stop
-punto-switcher-daemon
+rocket-switcher-stop
+rocket-switcher-daemon
 ```
 
 ---
@@ -338,7 +338,7 @@ punto-switcher-daemon
 ## Как запустить GUI и где хранится конфиг
 
 ```bash
-punto-switcher-config
+rocket-switcher-config
 ```
 
 Или через меню приложений: **Settings → Punto Switcher Settings**.
@@ -374,20 +374,20 @@ GUI сохраняет этот файл; daemon подхватывает его
 
 ```bash
 # процесс жив?
-pgrep -af punto-switcher-daemon
+pgrep -af rocket-switcher-daemon
 
 # остановить/запустить вручную
-punto-switcher-stop
-punto-switcher-daemon
+rocket-switcher-stop
+rocket-switcher-daemon
 
 # посмотреть последние сообщения daemon
-journalctl --user --since "30 min ago" --no-pager | grep -i punto-switcher-daemon
+journalctl --user --since "30 min ago" --no-pager | grep -i rocket-switcher-daemon
 ```
 
 Если после deep sleep/Bluetooth reconnect процесс жив, но реакции нет:
 - в актуальных версиях daemon сам делает reinit на `ENODEV/EIO/ENXIO` и
   `POLLHUP/POLLERR/POLLNVAL`;
-- если не восстановился, перезапусти `punto-switcher-daemon` вручную и
+- если не восстановился, перезапусти `rocket-switcher-daemon` вручную и
   проверь журнал.
 
 ---
@@ -395,7 +395,7 @@ journalctl --user --since "30 min ago" --no-pager | grep -i punto-switcher-daemo
 ## Manual QA Checklist (KDE Wayland)
 
 ### Подготовка
-- Установить пакет и убедиться, что `punto-switcher-daemon` запущен.
+- Установить пакет и убедиться, что `rocket-switcher-daemon` запущен.
 - Открыть Kate или любое Qt-приложение с текстовым полем.
 
 ### 1. Swap Last Word
@@ -420,7 +420,7 @@ journalctl --user --since "30 min ago" --no-pager | grep -i punto-switcher-daemo
 2. ✅ Ожидается: нет хаотичных замен посередине слова.
 
 ### 5. Смена hotkey через GUI
-1. Открыть `punto-switcher-config`.
+1. Открыть `rocket-switcher-config`.
 2. В "Swap Last Word" нажать новое сочетание, напр. **Ctrl+Space**.
 3. Save & Reload.
 4. ✅ Ожидается: новый хоткей работает, Alt+' больше не срабатывает.

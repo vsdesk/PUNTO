@@ -1,7 +1,7 @@
 Name:           punto-switcher
 Version:        1.0.0
 Release:        1%{?dist}
-Summary:        Punto-style automatic ru<->en keyboard layout corrector for Wayland
+Summary:        Ракета — automatic ru↔en keyboard layout corrector for Wayland
 
 License:        GPL-2.0+
 URL:            https://github.com/vsdesk/PUNTO
@@ -55,10 +55,10 @@ ctest --test-dir redhat-linux-build --output-on-failure
 %files
 %license LICENSE
 %doc README.md
-%{_bindir}/punto-switcher-daemon
-%{_bindir}/punto-switcher-stop
-%{_bindir}/punto-switcher-config
-%{_datadir}/applications/punto-switcher-config.desktop
+%{_bindir}/rocket-switcher-daemon
+%{_bindir}/rocket-switcher-stop
+%{_bindir}/rocket-switcher-config
+%{_datadir}/applications/rocket-switcher-config.desktop
 
 %changelog
 * Wed Mar 25 2026 PuntoSwitcher Maintainer <maintainer@example.com> - 1.0.0-1

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Ракета
+Name[ru]=Ракета
+Comment=ru↔en layout corrector
+Comment[ru]=Исправление раскладки ru↔en
+Exec=rocket-switcher-config
+Icon=input-keyboard
+Categories=Settings;Utility;
+Keywords=keyboard;layout;russian;english;input;raketa;
+Terminal=false

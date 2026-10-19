@@ -47,8 +47,11 @@ public:
     //
     // `currentLayout` is what the OS/keyboard currently reports.
     // If Unknown, heuristics are applied in both directions.
+    // `swappedAsTyped`, when set, is the same physical keys read in the other
+    // layout (xkb). Dictionary and URL checks use it instead of the static table.
     bool shouldSwitch(const std::string& word,
-                      CharMapping::Layout currentLayout = CharMapping::Layout::Unknown) const;
+                      CharMapping::Layout currentLayout = CharMapping::Layout::Unknown,
+                      const std::string& swappedAsTyped = {}) const;
 
     // Score how well `text` fits a given layout's language model (bigrams).
     // Returns value in [0, 1].

@@ -28,7 +28,7 @@ static const int    DEFAULT_MIN_WORD_LEN  = 3;
 static const double DEFAULT_CONFIDENCE    = 0.15;
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
-    setWindowTitle(tr("Punto Switcher — Settings"));
+    setWindowTitle(tr("Ракета — настройки"));
     setMinimumSize(520, 480);
     buildUI();
     loadConfig();
@@ -45,9 +45,9 @@ void MainWindow::buildSetupTab(QTabWidget* tabs) {
     lay->setContentsMargins(12, 12, 12, 12);
 
     auto* titleLabel = new QLabel(
-        tr("<b>First-time setup</b><br>"
-           "<small>Punto Switcher requires Fcitx5 as the active input method in KDE Wayland.<br>"
-           "The setup will migrate your existing keyboard layouts automatically.</small>"));
+        tr("<b>Первый запуск</b><br>"
+           "<small>Ракета работает в KDE Wayland через Fcitx5.<br>"
+           "Настройка сама перенесёт текущие раскладки.</small>"));
     titleLabel->setWordWrap(true);
     lay->addWidget(titleLabel);
 
@@ -56,21 +56,21 @@ void MainWindow::buildSetupTab(QTabWidget* tabs) {
     lay->addWidget(sep);
 
     // Status area
-    setupStatusLabel_ = new QLabel(tr("Checking setup status…"));
+    setupStatusLabel_ = new QLabel(tr("Проверяем состояние…"));
     setupStatusLabel_->setWordWrap(true);
     setupStatusLabel_->setTextFormat(Qt::RichText);
     lay->addWidget(setupStatusLabel_);
 
     // Buttons
     auto* btnRow = new QHBoxLayout;
-    runSetupBtn_ = new QPushButton(tr("Run Setup"), this);
-    runSetupBtn_->setToolTip(tr("Migrate your KDE keyboard layouts to Fcitx5 and configure KWin virtual keyboard.\n"
-                                "Your existing layouts and switching shortcut are preserved."));
+    runSetupBtn_ = new QPushButton(tr("Настроить"), this);
+    runSetupBtn_->setToolTip(tr("Перенести раскладки KDE в Fcitx5 и выбрать его виртуальной клавиатурой KWin.\n"
+                                "Текущие раскладки и сочетание переключения сохраняются."));
 
-    undoSetupBtn_ = new QPushButton(tr("Undo Setup"), this);
-    undoSetupBtn_->setToolTip(tr("Remove Fcitx5 as virtual keyboard and restore KDE native keyboard switcher."));
+    undoSetupBtn_ = new QPushButton(tr("Откатить"), this);
+    undoSetupBtn_->setToolTip(tr("Убрать Fcitx5 и вернуть штатный переключатель KDE."));
 
-    auto* refreshBtn = new QPushButton(tr("Refresh Status"), this);
+    auto* refreshBtn = new QPushButton(tr("Обновить"), this);
 
     btnRow->addWidget(runSetupBtn_);
     btnRow->addWidget(undoSetupBtn_);
@@ -82,14 +82,14 @@ void MainWindow::buildSetupTab(QTabWidget* tabs) {
     auto* logEdit = new QTextEdit(this);
     logEdit->setReadOnly(true);
     logEdit->setFont(QFont("Monospace", 9));
-    logEdit->setPlaceholderText(tr("Setup output will appear here…"));
+    logEdit->setPlaceholderText(tr("Здесь будет вывод настройки…"));
     lay->addWidget(logEdit, 1);
 
     connect(runSetupBtn_, &QPushButton::clicked, this, [this, logEdit]() {
         runSetupBtn_->setEnabled(false);
         logEdit->clear();
         auto* proc = new QProcess(this);
-        proc->setProgram("punto-switcher-setup");
+        proc->setProgram("rocket-switcher-setup");
         connect(proc, &QProcess::readyReadStandardOutput, this, [proc, logEdit]() {
             logEdit->append(proc->readAllStandardOutput());
         });
@@ -100,9 +100,9 @@ void MainWindow::buildSetupTab(QTabWidget* tabs) {
         connect(proc, QOverload<int,QProcess::ExitStatus>::of(&QProcess::finished),
                 this, [this, proc, logEdit](int code, QProcess::ExitStatus) {
             if (code == 0) {
-                logEdit->append(tr("<b style='color:green'>Setup completed successfully.</b>"));
+                logEdit->append(tr("<b style='color:green'>Настройка завершена.</b>"));
             } else {
-                logEdit->append(tr("<b style='color:red'>Setup exited with code %1.</b>").arg(code));
+                logEdit->append(tr("<b style='color:red'>Настройка завершилась с кодом %1.</b>").arg(code));
             }
             runSetupBtn_->setEnabled(true);
             proc->deleteLater();
@@ -110,20 +110,20 @@ void MainWindow::buildSetupTab(QTabWidget* tabs) {
         });
         proc->start();
         if (!proc->waitForStarted(3000)) {
-            logEdit->append(tr("<b style='color:red'>Could not start punto-switcher-setup. Is the package installed correctly?</b>"));
+            logEdit->append(tr("<b style='color:red'>Не удалось запустить rocket-switcher-setup. Пакет установлен?</b>"));
             runSetupBtn_->setEnabled(true);
         }
     });
 
     connect(undoSetupBtn_, &QPushButton::clicked, this, [this, logEdit]() {
-        auto ans = QMessageBox::question(this, tr("Undo Setup"),
-            tr("This will remove Fcitx5 as the virtual keyboard and restore KDE's native keyboard.\n"
-               "Punto Switcher will stop working until you run Setup again.\n\nContinue?"),
+        auto ans = QMessageBox::question(this, tr("Откат настройки"),
+            tr("Fcitx5 будет убран, вернётся штатная клавиатура KDE.\n"
+               "Переключение перестанет работать, пока настройку не запустят снова.\n\nПродолжить?"),
             QMessageBox::Yes | QMessageBox::No);
         if (ans != QMessageBox::Yes) return;
         logEdit->clear();
         auto* proc = new QProcess(this);
-        proc->setProgram("punto-switcher-setup");
+        proc->setProgram("rocket-switcher-setup");
         proc->setArguments({"--undo"});
         connect(proc, &QProcess::readyReadStandardOutput, this, [proc, logEdit]() {
             logEdit->append(proc->readAllStandardOutput());
@@ -138,7 +138,7 @@ void MainWindow::buildSetupTab(QTabWidget* tabs) {
 
     connect(refreshBtn, &QPushButton::clicked, this, &MainWindow::refreshSetupStatus);
 
-    tabs->addTab(setupTab, tr("Setup"));
+    tabs->addTab(setupTab, tr("Настройка"));
 }
 #endif
 
@@ -163,30 +163,30 @@ void MainWindow::buildUI() {
     daemonLayout->setSpacing(8);
     daemonLayout->setContentsMargins(12, 12, 12, 12);
 
-    daemonPassthrough_ = new QCheckBox(tr("Passthrough mode (forward keys only)"), this);
+    daemonPassthrough_ = new QCheckBox(tr("Только передавать клавиши, без переключения"), this);
     daemonPassthrough_->setToolTip(
-        tr("Disables word tracking, auto-switch, and Punto hotkey handling — the daemon only grabs "
-           "the keyboard and forwards events (like typing without Punto).\n"
-           "Use when keys are missing or stuck; same as [daemon] passthrough=true in daemon.ini."));
+        tr("Выключает слежение за словом, автопереключение и горячие клавиши. "
+           "Демон только перехватывает клавиатуру и отдаёт события дальше.\n"
+           "Нужно, если клавиши пропадают или залипают. То же, что passthrough=true в daemon.ini."));
     daemonLayout->addWidget(daemonPassthrough_);
 
     daemonInjectPasteFirst_ = new QCheckBox(
-        tr("Wayland: paste text before wtype (KDE / Plasma)"), this);
+        tr("Wayland: сначала вставка из буфера, потом wtype (KDE / Plasma)"), this);
     daemonInjectPasteFirst_->setToolTip(
-        tr("When enabled, the daemon tries clipboard + Ctrl+V before wtype. Use on KDE Wayland when "
-           "the compositor has no virtual-keyboard protocol (wtype fails, journal shows "
-           "\"Compositor does not support…\"). Improves auto-switch after resume in GUI apps; "
-           "terminals may still need wtype — disable here if auto-switch in Konsole breaks."));
+        tr("Сначала буфер и Ctrl+V, потом wtype. Включайте на KDE Wayland, если у композитора "
+           "нет протокола виртуальной клавиатуры: wtype падает, в журнале "
+           "«Compositor does not support…». В графических программах после сна это помогает; "
+           "в терминале может понадобиться wtype — снимите флажок, если в Konsole замена ломается."));
     daemonLayout->addWidget(daemonInjectPasteFirst_);
 
     auto* daemonNote = new QLabel(
-        tr("<small><i>Normal mode keeps Punto features. Passthrough is for diagnosing or working "
-           "around compositor/uinput issues. Restart the user service after saving.</i></small>"));
+        tr("<small><i>Обычный режим оставляет переключение. Прозрачный режим — чтобы проверить, "
+           "не мешает ли композитор или uinput. После сохранения служба перезапускается.</i></small>"));
     daemonNote->setWordWrap(true);
     daemonLayout->addWidget(daemonNote);
     daemonLayout->addStretch();
 
-    tabs->addTab(daemonTab, tr("Daemon"));
+    tabs->addTab(daemonTab, tr("Демон"));
 #endif
 
     // ---- Hotkeys ----
@@ -199,56 +199,55 @@ void MainWindow::buildUI() {
     hkToggleAuto_    = new HotkeyEditor(this);
     hkUndoSwitch_    = new HotkeyEditor(this);
 
-    hkLayout->addRow(tr("Swap last word:"), hkSwapLast_);
-    hkLayout->addRow(tr("Swap selection:"), hkSwapSelection_);
-    hkLayout->addRow(tr("Toggle auto-switch:"), hkToggleAuto_);
-    hkLayout->addRow(tr("Undo last switch:"), hkUndoSwitch_);
+    hkLayout->addRow(tr("Последнее слово:"), hkSwapLast_);
+    hkLayout->addRow(tr("Выделенный текст:"), hkSwapSelection_);
+    hkLayout->addRow(tr("Автопереключение вкл/выкл:"), hkToggleAuto_);
+    hkLayout->addRow(tr("Отменить последнюю замену:"), hkUndoSwitch_);
 
     auto* hkNote = new QLabel(
-        tr("<small><i>Conflict note: if a hotkey conflicts with system or application "
-           "shortcuts, the system binding takes priority. Punto will log a warning "
-           "when the key is intercepted without effect.</i></small>"));
+        tr("<small><i>Если сочетание уже занято системой или программой, сработает оно. "
+           "В журнале будет предупреждение, что клавиша перехвачена без эффекта.</i></small>"));
     hkNote->setWordWrap(true);
     hkLayout->addRow(hkNote);
 
-    tabs->addTab(hotkeysTab, tr("Hotkeys"));
+    tabs->addTab(hotkeysTab, tr("Горячие клавиши"));
 
     // ---- Tab 2: Auto-Switch ----
     auto* autoTab = new QWidget;
     auto* autoLayout = new QFormLayout(autoTab);
     autoLayout->setSpacing(8);
 
-    autoEnabled_ = new QCheckBox(tr("Enable automatic layout switching"), this);
+    autoEnabled_ = new QCheckBox(tr("Автоматически исправлять раскладку"), this);
 
     minWordLen_ = new QSpinBox(this);
     minWordLen_->setRange(1, 20);
-    minWordLen_->setSuffix(tr(" chars"));
-    minWordLen_->setToolTip(tr("Words shorter than this are never auto-switched "
-                               "(prevents false positives on short words like 'a', 'I', 'в')."));
+    minWordLen_->setSuffix(tr(" симв."));
+    minWordLen_->setToolTip(tr("Слова короче этого порога сами не переключаются "
+                               "(чтобы не трогать короткие вроде «я», «в», «a»)."));
 
     confidence_ = new QDoubleSpinBox(this);
     confidence_->setRange(0.0, 1.0);
     confidence_->setSingleStep(0.05);
     confidence_->setDecimals(2);
     confidence_->setToolTip(
-        tr("How much better the swapped version must score in bigram frequency "
-           "analysis compared to the original.\n"
-           "0.0 = switch almost always  |  0.5 = only very obvious cases.\n"
-           "Recommended: 0.10 – 0.25"));
+        tr("Насколько другая раскладка должна быть правдоподобнее набранной, "
+           "если слова нет в словаре.\n"
+           "0,0 — переключать почти всегда, 0,5 — только явные случаи.\n"
+           "Обычно хватает 0,10–0,25."));
 
     autoLayout->addRow(autoEnabled_);
-    autoLayout->addRow(tr("Minimum word length:"), minWordLen_);
-    autoLayout->addRow(tr("Confidence threshold:"), confidence_);
+    autoLayout->addRow(tr("Минимальная длина слова:"), minWordLen_);
+    autoLayout->addRow(tr("Порог уверенности:"), confidence_);
 
     auto* autoNote = new QLabel(
-        tr("<small><i>Auto-switch uses bigram frequency scoring (no dictionary, no ML). "
-           "It fires when a word, mapped to the other layout, scores better than "
-           "the original. Works best for words ≥ 4 characters. "
-           "Numbers, URLs, and emails are always excluded.</i></small>"));
+        tr("<small><i>Сначала словарь: если набранное уже слово, оно остаётся; "
+           "если слово получается в другой раскладке — раскладка меняется. "
+           "Для незнакомых слов сравниваются биграммы. Надёжнее всего от 4 букв. "
+           "Числа, адреса и почта не трогаются.</i></small>"));
     autoNote->setWordWrap(true);
     autoLayout->addRow(autoNote);
 
-    tabs->addTab(autoTab, tr("Auto-Switch"));
+    tabs->addTab(autoTab, tr("Автопереключение"));
 
     // ---- Tab 3: Debug / Log ----
     auto* debugTab = new QWidget;
@@ -257,28 +256,31 @@ void MainWindow::buildUI() {
 
 #if PUNTO_WITH_FCITX
     logLevel_ = new QComboBox(this);
-    logLevel_->addItems({tr("Disabled"), tr("Warning"), tr("Debug"), tr("Verbose")});
-    dbgLayout->addRow(tr("Fcitx5 log level:"), logLevel_);
+    logLevel_->addItem(tr("Выключен"), QStringLiteral("Disabled"));
+    logLevel_->addItem(tr("Предупреждения"), QStringLiteral("Warning"));
+    logLevel_->addItem(tr("Отладка"), QStringLiteral("Debug"));
+    logLevel_->addItem(tr("Подробно"), QStringLiteral("Verbose"));
+    dbgLayout->addRow(tr("Журнал Fcitx5:"), logLevel_);
 
     auto* dbgNote = new QLabel(
-        tr("<small>Log output goes to journald / ~/.local/share/fcitx5/logs/.<br>"
-           "Reload Fcitx5 after changing log level.</small>"));
+        tr("<small>Журнал пишется в journald и ~/.local/share/fcitx5/logs/.<br>"
+           "После смены уровня Fcitx5 перезагружается.</small>"));
 #else
     auto* dbgNote = new QLabel(
-        tr("<small>punto-switcher-daemon writes diagnostics to stderr when run from a terminal.<br>"
-           "After saving, a user systemd restart is attempted (<code>systemctl --user restart "
-           "punto-switcher-daemon</code>).</small>"));
+        tr("<small>Если демон запущен из терминала, диагностика идёт в stderr.<br>"
+           "После сохранения делается попытка перезапуска: <code>systemctl --user restart "
+           "rocket-switcher-daemon</code>.</small>"));
 #endif
     dbgNote->setWordWrap(true);
     dbgLayout->addRow(dbgNote);
 
-    tabs->addTab(debugTab, tr("Debug"));
+    tabs->addTab(debugTab, tr("Отладка"));
 
     // ---- Bottom buttons ----
     auto* btnLayout = new QHBoxLayout;
-    defaultsBtn_ = new QPushButton(tr("Restore Defaults"), this);
-    saveBtn_     = new QPushButton(tr("Save && Reload"), this);
-    cancelBtn_   = new QPushButton(tr("Close"), this);
+    defaultsBtn_ = new QPushButton(tr("По умолчанию"), this);
+    saveBtn_     = new QPushButton(tr("Сохранить"), this);
+    cancelBtn_   = new QPushButton(tr("Закрыть"), this);
 
     saveBtn_->setDefault(true);
     saveBtn_->setIcon(QApplication::style()->standardIcon(QStyle::SP_DialogSaveButton));
@@ -291,7 +293,7 @@ void MainWindow::buildUI() {
     mainLayout->addLayout(btnLayout);
 
     // Status bar
-    statusBar()->showMessage(tr("Ready"));
+    statusBar()->showMessage(tr("Готово"));
 
     connect(saveBtn_,     &QPushButton::clicked, this, &MainWindow::onSave);
     connect(cancelBtn_,   &QPushButton::clicked, this, &MainWindow::onCancel);
@@ -303,12 +305,26 @@ QString MainWindow::configPath() const {
 #if PUNTO_WITH_FCITX
     return home + "/.config/fcitx5/conf/punto-switcher.conf";
 #else
-    return home + "/.config/punto-switcher/daemon.ini";
+    return home + "/.config/rocket-switcher/daemon.ini";
 #endif
 }
 
+#if !PUNTO_WITH_FCITX
+static QString configPathToLoad() {
+    const QString home = QDir::homePath();
+    const QString neu = home + "/.config/rocket-switcher/daemon.ini";
+    const QString old = home + "/.config/punto-switcher/daemon.ini";
+    if (QFileInfo::exists(neu) || !QFileInfo::exists(old)) return neu;
+    return old;
+}
+#endif
+
 void MainWindow::loadConfig() {
+#if PUNTO_WITH_FCITX
     QSettings cfg(configPath(), QSettings::IniFormat);
+#else
+    QSettings cfg(configPathToLoad(), QSettings::IniFormat);
+#endif
 
 #if PUNTO_WITH_FCITX
     hkSwapLast_->setFromFcitxString(
@@ -329,7 +345,8 @@ void MainWindow::loadConfig() {
     confidence_->setValue(pct / 100.0);
 
     QString ll = cfg.value("LogLevel", "Warning").toString();
-    int idx = logLevel_->findText(ll);
+    int idx = logLevel_->findData(ll);
+    if (idx < 0) idx = logLevel_->findText(ll);
     logLevel_->setCurrentIndex(idx >= 0 ? idx : 1);
 #else
     cfg.beginGroup("hotkeys");
@@ -373,7 +390,7 @@ void MainWindow::saveConfig() {
     cfg.setValue("AutoSwitch",            autoEnabled_->isChecked());
     cfg.setValue("MinWordLength",         minWordLen_->value());
     cfg.setValue("ConfidenceThresholdPct", qRound(confidence_->value() * 100));
-    cfg.setValue("LogLevel",           logLevel_->currentText());
+    cfg.setValue("LogLevel",           logLevel_->currentData().toString());
 #else
     cfg.beginGroup("hotkeys");
     cfg.setValue("swap_last",      hkSwapLast_->fcitxString());
@@ -413,11 +430,11 @@ void MainWindow::onSave() {
     saveConfig();
 #if PUNTO_WITH_FCITX
     reloadFcitx5();
-    statusBar()->showMessage(tr("Settings saved. Fcitx5 reload requested."), 3000);
+    statusBar()->showMessage(tr("Настройки сохранены, Fcitx5 перезагружается."), 3000);
 #else
-    QProcess::startDetached("systemctl", {"--user", "try-restart", "punto-switcher-daemon"});
+    QProcess::startDetached("systemctl", {"--user", "try-restart", "rocket-switcher-daemon"});
     statusBar()->showMessage(
-        tr("Settings saved. Tried: systemctl --user restart punto-switcher-daemon"), 4000);
+        tr("Настройки сохранены, служба перезапускается."), 4000);
 #endif
 }
 
@@ -427,8 +444,8 @@ void MainWindow::onCancel() {
 
 void MainWindow::onRestoreDefaults() {
     auto answer = QMessageBox::question(
-        this, tr("Restore Defaults"),
-        tr("Reset all settings to defaults?"),
+        this, tr("Настройки по умолчанию"),
+        tr("Вернуть все настройки к исходным?"),
         QMessageBox::Yes | QMessageBox::No);
     if (answer != QMessageBox::Yes) return;
 
@@ -447,30 +464,30 @@ void MainWindow::onRestoreDefaults() {
     logLevel_->setCurrentIndex(1);
 #endif
 
-    statusBar()->showMessage(tr("Defaults restored (not saved yet — click Save)"), 3000);
+    statusBar()->showMessage(tr("Подставлены значения по умолчанию. Нажмите «Сохранить»."), 3000);
 }
 
 void MainWindow::onAbout() {
     QMessageBox::about(
         this,
-        tr("About Punto Switcher"),
-        tr("<b>Punto Switcher</b> v1.0<br>"
+        tr("О программе"),
+        tr("<b>Ракета</b> v1.0<br>"
 #if PUNTO_WITH_FCITX
-           "Automatic ru↔en layout corrector (Fcitx5 module).<br><br>"
+           "Автоисправление раскладки ru↔en (модуль Fcitx5).<br><br>"
 #else
-           "Automatic ru↔en layout corrector (evdev daemon, no Fcitx5).<br><br>"
+           "Автоисправление раскладки ru↔en (демон evdev, без Fcitx5).<br><br>"
 #endif
-           "License: GPL-2.0+<br>"
-           "Source: https://github.com/your-org/punto-switcher"));
+           "Лицензия: GPL-2.0+<br>"
+           "Исходный код: https://github.com/your-org/punto-switcher"));
 }
 
 void MainWindow::refreshSetupStatus() {
 #if !PUNTO_WITH_FCITX
     return;
 #else
-    // Run 'punto-switcher-setup --status' and parse output
+    // Run 'rocket-switcher-setup --status' and parse output
     auto* proc = new QProcess(this);
-    proc->setProgram("punto-switcher-setup");
+    proc->setProgram("rocket-switcher-setup");
     proc->setArguments({"--status"});
     connect(proc, QOverload<int,QProcess::ExitStatus>::of(&QProcess::finished),
             this, [this, proc](int, QProcess::ExitStatus) {
@@ -495,17 +512,17 @@ void MainWindow::refreshSetupStatus() {
         bool allOk = hasProfile && hasVK && hasPlugin && isRunning;
 
         if (allOk) {
-            html = "<p><b style='color:green'>✅ Punto Switcher is fully configured and active.</b></p>";
+            html = "<p><b style='color:green'>✅ Ракета настроена и работает.</b></p>";
         } else {
-            html = "<p><b style='color:orange'>Setup required. Click \"Run Setup\" to fix automatically.</b></p>";
-            row(hasPlugin,  tr("Fcitx5 KWin plugin installed"),
+            html = "<p><b style='color:orange'>Нужна настройка. Нажмите «Настроить».</b></p>";
+            row(hasPlugin,  tr("Плагин Fcitx5 для KWin установлен"),
                 tr("sudo apt install kde-config-fcitx5"));
-            row(hasProfile, tr("Keyboard layouts migrated to Fcitx5"),
-                tr("Click \"Run Setup\""));
-            row(hasVK,      tr("Fcitx5 set as KWin virtual keyboard"),
-                tr("Click \"Run Setup\" or set manually in System Settings → Virtual Keyboard"));
-            row(isRunning,  tr("Fcitx5 is running"),
-                tr("Click \"Run Setup\" to start it"));
+            row(hasProfile, tr("Раскладки перенесены в Fcitx5"),
+                tr("Нажмите «Настроить»"));
+            row(hasVK,      tr("Fcitx5 выбран виртуальной клавиатурой KWin"),
+                tr("Нажмите «Настроить» или выберите вручную: Параметры системы → Виртуальная клавиатура"));
+            row(isRunning,  tr("Fcitx5 запущен"),
+                tr("Нажмите «Настроить», чтобы запустить"));
         }
         setupStatusLabel_->setText(html);
         runSetupBtn_->setEnabled(!allOk || true); // always allow re-running
@@ -513,8 +530,8 @@ void MainWindow::refreshSetupStatus() {
     proc->start();
     if (!proc->waitForStarted(3000)) {
         setupStatusLabel_->setText(
-            tr("<p><b style='color:red'>❌ punto-switcher-setup not found.</b> "
-               "Try reinstalling the package.</p>"));
+            tr("<p><b style='color:red'>❌ rocket-switcher-setup не найден.</b> "
+               "Переустановите пакет.</p>"));
     }
 #endif
 }

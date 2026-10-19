@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Same flow as the earlier PUNTO session: snapshot sources into _dist/punto-switcher-<upstream>/
-# via tar excludes (no nested _dist/_build/.git), add debian/ from packaging/deb, dpkg-buildpackage.
-# Binary .deb lands in _dist/; we also copy to dist/ and to repo root as punto-switcher_<ver>_latest.deb.
+# Snapshot sources into _dist/rocket-switcher-<upstream>/, add debian/ from packaging/deb,
+# dpkg-buildpackage. The binary .deb is copied to dist/ and to rocket-switcher_<ver>_latest.deb.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -18,12 +17,13 @@ if [[ ! -f "$CHANGELOG" ]]; then
   exit 1
 fi
 
-FULL_VER=$(grep -m1 '^punto-switcher' "$CHANGELOG" | sed -n 's/.*(\([^)]*\)).*/\1/p')
+PKG_NAME=$(grep -m1 -E '^[a-z0-9][a-z0-9.+-]* \(' "$CHANGELOG" | awk '{print $1}')
+FULL_VER=$(grep -m1 -E '^[a-z0-9][a-z0-9.+-]* \(' "$CHANGELOG" | sed -n 's/.*(\([^)]*\)).*/\1/p')
 # Upstream directory name: strip last -<debian_revision> (e.g. 1.0.0-20 -> 1.0.0)
 UPSTREAM_VER=$(echo "$FULL_VER" | sed 's/-[0-9][0-9]*$//')
-SRCDIR="$ROOT/_dist/punto-switcher-${UPSTREAM_VER}"
+SRCDIR="$ROOT/_dist/${PKG_NAME}-${UPSTREAM_VER}"
 
-echo "==> Version from changelog: $FULL_VER (upstream dir: punto-switcher-${UPSTREAM_VER})"
+echo "==> Version from changelog: $FULL_VER (upstream dir: ${PKG_NAME}-${UPSTREAM_VER})"
 
 mkdir -p "$ROOT/_dist"
 rm -rf "$SRCDIR"
@@ -56,7 +56,7 @@ echo "==> dpkg-buildpackage in $SRCDIR"
 fakeroot dpkg-buildpackage -us -uc -b -j"$(nproc)"
 
 ARCH="$(dpkg-architecture -qDEB_HOST_ARCH 2>/dev/null || echo amd64)"
-MAIN_DEB="$ROOT/_dist/punto-switcher_${FULL_VER}_${ARCH}.deb"
+MAIN_DEB="$ROOT/_dist/${PKG_NAME}_${FULL_VER}_${ARCH}.deb"
 
 mkdir -p "$ROOT/dist"
 if [[ ! -f "$MAIN_DEB" ]]; then
@@ -65,14 +65,14 @@ if [[ ! -f "$MAIN_DEB" ]]; then
 fi
 
 cp -v "$MAIN_DEB" "$ROOT/dist/"
-LATEST="$ROOT/punto-switcher_${FULL_VER}_latest.deb"
-rm -f "$ROOT"/punto-switcher_*_latest.deb
+LATEST="$ROOT/${PKG_NAME}_${FULL_VER}_latest.deb"
+rm -f "$ROOT"/punto-switcher_*_latest.deb "$ROOT"/rocket-switcher_*_latest.deb
 cp -v "$MAIN_DEB" "$LATEST"
 
 echo "==> Done:"
-ls -la "$MAIN_DEB" "$ROOT/dist/punto-switcher_${FULL_VER}_${ARCH}.deb" "$LATEST"
+ls -la "$MAIN_DEB" "$ROOT/dist/${PKG_NAME}_${FULL_VER}_${ARCH}.deb" "$LATEST"
 echo ""
 echo "Install (prefer dpkg for a .deb under \$HOME — avoids _apt permission warnings):"
 echo "  sudo dpkg -i $LATEST && sudo apt-get -f install -y"
 echo "Or copy to /tmp then apt:"
-echo "  cp $LATEST /tmp/punto-switcher.deb && sudo apt install -y /tmp/punto-switcher.deb"
+echo "  cp $LATEST /tmp/${PKG_NAME}.deb && sudo apt install -y /tmp/${PKG_NAME}.deb"

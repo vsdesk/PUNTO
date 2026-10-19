@@ -1,3 +1,56 @@
+rocket-switcher (1.0.0-136) unstable; urgency=medium
+
+  * The application is Ракета. Package, binaries and the user service are
+    rocket-switcher. Settings in ~/.config/punto-switcher are still read.
+
+ -- Raketa Maintainer <maintainer@example.com>  Mon, 19 Oct 2026 12:15:00 +0300
+
+punto-switcher (1.0.0-135) unstable; urgency=medium
+
+  * Selection swap pastes the whole converted phrase in one Ctrl+V. Typing it
+    as a key burst dropped the middle of the sentence.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Mon, 19 Oct 2026 12:10:00 +0300
+
+punto-switcher (1.0.0-134) unstable; urgency=medium
+
+  * Settings window is in Russian: tabs, hotkeys, auto-switch, daemon options.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Mon, 19 Oct 2026 12:05:00 +0300
+
+punto-switcher (1.0.0-133) unstable; urgency=medium
+
+  * Selection swap types the converted text instead of Ctrl+V. Klipper was
+    consuming wl-copy --paste-once, so the highlight was deleted and nothing
+    was pasted.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Mon, 19 Oct 2026 11:55:00 +0300
+
+punto-switcher (1.0.0-132) unstable; urgency=medium
+
+  * Delimiters follow the xkb pair, the way xneur does: a key stays in the word
+    when the other layout has a letter there (б ю ж э х ъ ё), and ends the word
+    when both layouts have punctuation (slash, question mark, digit-row signs).
+  * After a switch the separator is retyped in the new layout, so "реезыЖ.."
+    becomes "https://", a Russian sentence keeps ".", and "www." / "hello."
+    keep the period. Short tokens www, com, ftp switch too.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Mon, 19 Oct 2026 11:50:00 +0300
+
+punto-switcher (1.0.0-131) unstable; urgency=medium
+
+  * Russian period (slash key) ends the word again, so "реезыЖ.." becomes "https://".
+    Comma/dot keys that are letters on the other layout ("б", "ю") still stay inside the word.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Mon, 19 Oct 2026 11:35:00 +0300
+
+punto-switcher (1.0.0-130) unstable; urgency=medium
+
+  * Keep JCUKEN letter keys (comma = б, dot = ю) inside the word so "Работает" is not split.
+  * Auto-switch no longer backspaces the not-yet-typed separator, which ate the space before the word.
+
+ -- PuntoSwitcher Maintainer <maintainer@example.com>  Mon, 19 Oct 2026 11:30:00 +0300
+
 punto-switcher (1.0.0-129) unstable; urgency=medium
 
   * GUI (daemon build): checkbox «Wayland: paste text before wtype» → [daemon] inject_paste_first.

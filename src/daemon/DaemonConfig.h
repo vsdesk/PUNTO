@@ -40,7 +40,8 @@ struct DaemonConfig {
     std::string xkbLayoutString  = "us,ru";
     std::string xkbVariantString = ",";
 
-    /// Load from ~/.config/punto-switcher/daemon.ini (merged with defaults).
+    /// Load from ~/.config/rocket-switcher/daemon.ini, or the previous
+    /// ~/.config/punto-switcher/daemon.ini if that is the file that exists.
     static DaemonConfig loadDefault();
     bool save() const;
 };
