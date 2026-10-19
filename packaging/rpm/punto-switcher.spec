@@ -59,7 +59,10 @@ ctest --test-dir redhat-linux-build --output-on-failure
 %{_bindir}/rocket-switcher-stop
 %{_bindir}/rocket-switcher-config
 %{_datadir}/applications/rocket-switcher-config.desktop
+%{_datadir}/rocket-switcher
 
 %changelog
+* Mon Oct 19 2026 Raketa Maintainer <maintainer@example.com> - 1.0.0-1
+- Package the dictionaries installed under /usr/share/rocket-switcher/dict
 * Wed Mar 25 2026 PuntoSwitcher Maintainer <maintainer@example.com> - 1.0.0-1
 - Initial release
