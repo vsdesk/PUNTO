@@ -53,9 +53,9 @@ punto-switcher/
 ├── packaging/
 │   ├── deb/                    # debhelper 13 debian/ tree
 │   │   ├── control, rules, changelog, copyright, compat
-│   │   └── punto-switcher.install
+│   │   └── rocket-switcher.install
 │   └── rpm/
-│       └── punto-switcher.spec # rpmbuild spec
+│       └── rocket-switcher.spec # rpmbuild spec; версия из changelog
 ├── docker/
 │   ├── Dockerfile.deb          # Ubuntu 24.04 builder → *.deb
 │   └── Dockerfile.rpm          # Fedora 41 builder → *.rpm
@@ -253,7 +253,7 @@ mkdir -p dist
 docker run --rm -v "$PWD/dist:/dist" punto-deb-builder
 
 # Установить
-sudo dpkg -i dist/punto-switcher_1.0.0-1_amd64.deb
+sudo dpkg -i dist/rocket-switcher_1.0.0-*_amd64.deb
 sudo apt-get install -f   # устранить зависимости если нужно
 ```
 
@@ -282,7 +282,7 @@ mkdir -p dist
 docker run --rm -v "$PWD/dist:/dist" punto-rpm-builder
 
 # Установить на Fedora
-sudo dnf install dist/punto-switcher-1.0.0-1.fc41.x86_64.rpm
+sudo dnf install dist/rocket-switcher-1.0.0-*.fc41.x86_64.rpm
 ```
 
 ### Локально на Fedora
@@ -292,11 +292,19 @@ sudo dnf install rpm-build rpmdevtools
 rpmdev-setuptree
 
 # Создать исходник
-tar czf ~/rpmbuild/SOURCES/punto-switcher-1.0.0.tar.gz \
-    --transform 's,^,punto-switcher-1.0.0/,' .
-cp packaging/rpm/punto-switcher.spec ~/rpmbuild/SPECS/
+# Имя и номер берутся из первой строки packaging/deb/changelog (как у .deb).
+line=$(grep -m1 -E '^[a-z0-9][a-z0-9.+-]* \(' packaging/deb/changelog)
+name=$(printf '%s\n' "$line" | awk '{print $1}')
+full=$(printf '%s\n' "$line" | sed -n 's/.*(\([^)]*\)).*/\1/p')
+upstream=$(printf '%s\n' "$full" | sed 's/-[0-9][0-9]*$//')
+revision=$(printf '%s\n' "$full" | sed 's/.*-//')
+tar czf ~/rpmbuild/SOURCES/${name}-${upstream}.tar.gz \
+    --transform "s,^,${name}-${upstream}/," .
+cp packaging/rpm/rocket-switcher.spec ~/rpmbuild/SPECS/
 
-rpmbuild -bb ~/rpmbuild/SPECS/punto-switcher.spec
+rpmbuild -bb ~/rpmbuild/SPECS/rocket-switcher.spec \
+    --define "deb_upstream ${upstream}" \
+    --define "deb_revision ${revision}"
 # Пакет в ~/rpmbuild/RPMS/x86_64/
 ```
 
@@ -307,14 +315,14 @@ rpmbuild -bb ~/rpmbuild/SPECS/punto-switcher.spec
 ### Ubuntu/Debian
 
 ```bash
-sudo dpkg -i dist/punto-switcher_*_amd64.deb
+sudo dpkg -i dist/rocket-switcher_*_amd64.deb
 sudo apt-get -f install -y
 ```
 
 ### Fedora
 
 ```bash
-sudo dnf install dist/punto-switcher-*.rpm
+sudo dnf install dist/rocket-switcher-*.rpm
 ```
 
 ### Запуск daemon

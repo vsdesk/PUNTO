@@ -1,9 +1,10 @@
 # Builder image for Fedora .rpm package
 # Usage:
-#   docker build -f docker/Dockerfile.rpm -t punto-rpm-builder .
-#   docker run --rm -v "$PWD/dist:/dist" punto-rpm-builder
+#   docker build -f docker/Dockerfile.rpm -t rocket-rpm-builder .
+#   docker run --rm -v "$PWD/dist:/dist" rocket-rpm-builder
 #
 # The .rpm artefact will be placed in dist/ on the host.
+# Name and revision come from the first stanza of packaging/deb/changelog.
 
 FROM fedora:41
 
@@ -27,19 +28,29 @@ RUN dnf install -y \
 # Set up rpmbuild tree
 RUN rpmdev-setuptree
 
-# Copy source and create tarball
-COPY . /tmp/punto-switcher-1.0.0/
+COPY . /tmp/src/
 
-RUN tar czf ~/rpmbuild/SOURCES/punto-switcher-1.0.0.tar.gz \
-        -C /tmp punto-switcher-1.0.0/
-
-# Copy spec file
-RUN cp /tmp/punto-switcher-1.0.0/packaging/rpm/punto-switcher.spec \
-       ~/rpmbuild/SPECS/
-
-# Build the RPM
-RUN rpmbuild -bb ~/rpmbuild/SPECS/punto-switcher.spec \
-    --define "_build_ncpus $(nproc)"
+# Package name and 1.0.0-<revision> are the Debian changelog stanza, so the
+# .rpm filename matches the .deb (rocket-switcher-1.0.0-138.fc41...).
+RUN set -eu; \
+    line=$(grep -m1 -E '^[a-z0-9][a-z0-9.+-]* \(' /tmp/src/packaging/deb/changelog); \
+    name=$(printf '%s\n' "$line" | awk '{print $1}'); \
+    full=$(printf '%s\n' "$line" | sed -n 's/.*(\([^)]*\)).*/\1/p'); \
+    upstream=$(printf '%s\n' "$full" | sed 's/-[0-9][0-9]*$//'); \
+    revision=$(printf '%s\n' "$full" | sed 's/.*-//'); \
+    test "$name" = "rocket-switcher"; \
+    test -n "$upstream"; \
+    test -n "$revision"; \
+    mkdir -p "/tmp/${name}-${upstream}"; \
+    tar -C /tmp/src --exclude=./.git -cf - . | tar -C "/tmp/${name}-${upstream}" -xf -; \
+    tar czf "$HOME/rpmbuild/SOURCES/${name}-${upstream}.tar.gz" \
+        -C /tmp "${name}-${upstream}"; \
+    cp /tmp/src/packaging/rpm/rocket-switcher.spec \
+       "$HOME/rpmbuild/SPECS/rocket-switcher.spec"; \
+    rpmbuild -bb "$HOME/rpmbuild/SPECS/rocket-switcher.spec" \
+        --define "deb_upstream ${upstream}" \
+        --define "deb_revision ${revision}" \
+        --define "_build_ncpus $(nproc)"
 
 # Copy artefact to /dist
 CMD mkdir -p /dist && \

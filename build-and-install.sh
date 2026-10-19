@@ -118,12 +118,19 @@ if [ "$PKG_MGR" = "apt" ]; then
 elif [ "$PKG_MGR" = "dnf" ]; then
     info "Building .rpm package..."
     rpmdev-setuptree
-    TARBALL_NAME="punto-switcher-1.0.0.tar.gz"
+    line=$(grep -m1 -E '^[a-z0-9][a-z0-9.+-]* \(' "$SCRIPT_DIR/packaging/deb/changelog")
+    name=$(printf '%s\n' "$line" | awk '{print $1}')
+    full=$(printf '%s\n' "$line" | sed -n 's/.*(\([^)]*\)).*/\1/p')
+    upstream=$(printf '%s\n' "$full" | sed 's/-[0-9][0-9]*$//')
+    revision=$(printf '%s\n' "$full" | sed 's/.*-//')
+    TARBALL_NAME="${name}-${upstream}.tar.gz"
     tar czf ~/rpmbuild/SOURCES/"$TARBALL_NAME" \
-        --transform 's,^,punto-switcher-1.0.0/,' \
+        --transform "s,^,${name}-${upstream}/," \
         -C "$SCRIPT_DIR" .
-    cp "$SCRIPT_DIR/packaging/rpm/punto-switcher.spec" ~/rpmbuild/SPECS/
-    rpmbuild -bb ~/rpmbuild/SPECS/punto-switcher.spec
+    cp "$SCRIPT_DIR/packaging/rpm/rocket-switcher.spec" ~/rpmbuild/SPECS/
+    rpmbuild -bb ~/rpmbuild/SPECS/rocket-switcher.spec \
+        --define "deb_upstream ${upstream}" \
+        --define "deb_revision ${revision}"
 
     RPM_FILE=$(find ~/rpmbuild/RPMS -name "*.rpm" | head -1)
     info "Package built: $RPM_FILE"

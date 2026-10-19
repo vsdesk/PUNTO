@@ -67,7 +67,7 @@ jobs:
       - name: Upload .deb artefact
         uses: actions/upload-artifact@v4
         with:
-          name: punto-switcher-deb
+          name: rocket-switcher-deb
           path: dist/*.deb
           retention-days: 30
 
@@ -90,7 +90,7 @@ jobs:
       - name: Upload .rpm artefact
         uses: actions/upload-artifact@v4
         with:
-          name: punto-switcher-rpm
+          name: rocket-switcher-rpm
           path: dist/*.rpm
           retention-days: 30
 
@@ -103,12 +103,12 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: punto-switcher-deb
+          name: rocket-switcher-deb
           path: dist/
 
       - uses: actions/download-artifact@v4
         with:
-          name: punto-switcher-rpm
+          name: rocket-switcher-rpm
           path: dist/
 
       - name: Create Release

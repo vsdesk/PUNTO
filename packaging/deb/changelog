@@ -1,3 +1,9 @@
+rocket-switcher (1.0.0-138) unstable; urgency=medium
+
+  * The RPM is named rocket-switcher and uses the same revision as this .deb.
+
+ -- Raketa Maintainer <maintainer@example.com>  Mon, 19 Oct 2026 12:40:00 +0300
+
 rocket-switcher (1.0.0-137) unstable; urgency=medium
 
   * Pause/Break can be the selection-swap hotkey (alt+pause). PrintScreen stays a screenshot.

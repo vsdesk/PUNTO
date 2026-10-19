@@ -1,6 +1,8 @@
-Name:           punto-switcher
-Version:        1.0.0
-Release:        1%{?dist}
+Name:           rocket-switcher
+# deb_upstream / deb_revision are passed by the RPM build from the first
+# stanza of packaging/deb/changelog, so the .rpm revision matches the .deb.
+Version:        %{deb_upstream}
+Release:        %{deb_revision}%{?dist}
 Summary:        Ракета — automatic ru↔en keyboard layout corrector for Wayland
 
 License:        GPL-2.0+
@@ -20,9 +22,11 @@ BuildRequires:  libxkbcommon-devel
 Requires:       qt6-qtbase
 Requires:       wl-clipboard
 Requires:       wtype
+Obsoletes:      punto-switcher
+Provides:       punto-switcher = %{version}-%{release}
 
 %description
-PuntoSwitcher provides Punto Switcher-like functionality for Wayland:
+Ракета provides Punto Switcher-like functionality for Wayland:
 automatic detection and correction of text typed in the wrong keyboard
 layout (Russian/English), manual swap of the last typed word, and swap
 of selected text.
@@ -62,6 +66,8 @@ ctest --test-dir redhat-linux-build --output-on-failure
 %{_datadir}/rocket-switcher
 
 %changelog
+* Mon Oct 19 2026 Raketa Maintainer <maintainer@example.com> - 1.0.0-138
+- Name the package rocket-switcher and take the revision from the Debian changelog
 * Mon Oct 19 2026 Raketa Maintainer <maintainer@example.com> - 1.0.0-1
 - Package the dictionaries installed under /usr/share/rocket-switcher/dict
 * Wed Mar 25 2026 PuntoSwitcher Maintainer <maintainer@example.com> - 1.0.0-1
