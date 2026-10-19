@@ -1,124 +1,144 @@
 # Ракета
 
-Автоматическое переключение раскладки **ru↔en** для **Wayland** через
-**`rocket-switcher-daemon`** (evdev/uinput) и окно настроек
-`rocket-switcher-config`.
+Автоисправление раскладки **ru↔en** на Linux/Wayland. Демон
+`rocket-switcher-daemon` читает клавиатуру через evdev и подставляет
+исправленное слово через uinput. Окно настроек — `rocket-switcher-config`.
 
-### Кому не подходит
+Пакет называется `rocket-switcher`. Старый пакет `punto-switcher` он
+заменяет. Если остался файл `~/.config/punto-switcher/daemon.ini`, демон его
+прочитает, пока рядом нет `~/.config/rocket-switcher/daemon.ini`.
 
-Если вам нельзя запускать daemon с доступом к `input/uinput`, этот репозиторий
-не подойдёт. Текущая рабочая реализация — именно `rocket-switcher-daemon`
-(глобальные hotkeys и автосвитч через evdev/uinput), а не только IME-модуль.
+Репозиторий: https://github.com/vsdesk/PUNTO
 
----
-
-## Архитектурные решения (зафиксированы)
-
-| Аспект | Выбор | Обоснование |
-|--------|-------|-------------|
-| Input path | **daemon (evdev/uinput)** + fallback clipboard paste | Глобальные hotkeys/autoswitch в Wayland-приложениях без зависимости от surroundingText |
-| Qt версия | **Qt6 Widgets** | Доступен в Ubuntu 22.04+, Debian 12+, Fedora 37+; один dev-пакет |
-| Packaging deb | **debhelper 13** + `dpkg-buildpackage` | Нативный подход, корректный `${shlibs:Depends}` |
-| Packaging rpm | **rpmbuild** + `.spec` | Стандарт для Fedora/RHEL |
-| Build system | **CMake 3.20+** | Интегрируется с Qt6 и системными libevdev/xkbcommon |
-| Testing | **GTest** | Стандарт для C++ |
-| Auto-switch | **Bigram-scoring heuristic** | Нет ML, нет словаря; top-50 биграм на язык |
+Демону нужен доступ к `/dev/input` и `/dev/uinput` (группа `input`). Без этого
+репозиторий не подходит.
 
 ---
 
-## Структура репозитория
+## Что умеет
 
-```
-punto-switcher/
-├── src/
-│   ├── core/                   # Переносимая логика (без daemon/Qt зависимостей)
-│   │   ├── CharMapping.h/.cpp  # Таблица JCUKEN↔QWERTY + char-level swap
-│   │   ├── WordSwapper.h/.cpp  # Punto-style swapLastWord / swapSelection
-│   │   ├── AutoSwitchHeuristic.h/.cpp  # Детектор "неверной раскладки"
-│   │   └── Utf8Utils.h         # UTF-8↔UTF-32 без внешних зависимостей
-│   ├── daemon/                 # Текущий runtime: evdev/uinput daemon
-│   │   ├── PuntoDaemon.h/.cpp  # Основная логика hotkeys/autoswitch/inject
-│   │   ├── EvdevUinput.h/.cpp  # Захват клавиатур + uinput forward/inject
-│   │   ├── LayoutController.*  # Синхронизация раскладки с KDE
-│   │   └── DaemonConfig.*      # ~/.config/punto-switcher/daemon.ini
-│   └── gui/                    # Qt6 конфигуратор
-│       ├── main.cpp
-│       ├── MainWindow.h/.cpp   # Главное окно (tabs: Hotkeys / Auto-Switch / Debug)
-│       ├── HotkeyEditor.h/.cpp # Виджет записи клавиатурного сочетания
-│       └── rocket-switcher-config.desktop.in
-├── tests/                      # GTest unit-тесты
-│   ├── test_mapping.cpp        # CharMapping: все 33 символа, регистры, round-trip
-│   ├── test_swapper.cpp        # WordSwapper: границы слов, selection, round-trip
-│   └── test_heuristic.cpp      # AutoSwitch: false-pos/neg, guards, bigram score
-├── packaging/
-│   ├── deb/                    # debhelper 13 debian/ tree
-│   │   ├── control, rules, changelog, copyright, compat
-│   │   └── rocket-switcher.install
-│   └── rpm/
-│       └── rocket-switcher.spec # rpmbuild spec; версия из changelog
-├── docker/
-│   ├── Dockerfile.deb          # Ubuntu 24.04 builder → *.deb
-│   └── Dockerfile.rpm          # Fedora 41 builder → *.rpm
-└── .github/workflows/
-    └── build-packages.yml      # CI: tests + deb + rpm + GitHub Release
-```
+| Действие | По умолчанию |
+|----------|----------------|
+| Заменить последнее слово | `Alt+'` |
+| Заменить выделенный текст | `Alt+Shift+'` |
+| Автопереключение вкл/выкл | `Alt+Shift+A` |
+| Отменить последнюю замену | `Alt+Shift+Backspace` |
+
+Сочетания меняются в настройках. Имя `pause` или `break` задаёт клавишу
+Pause/Break (`KEY_PAUSE` и `KEY_PLAYPAUSE`). PrintScreen в это сочетание не
+входит. Голая буква без Alt/Ctrl/Shift/Super сочетанием не становится: иначе
+она перестала бы печататься.
+
+Обычное слово демон не набирает заново через буфер обмена. Он стирает его
+backspace и повторяет те же физические клавиши уже в другой раскладке.
+Разделитель (пробел, точка на клавише, которая в обеих раскладках даёт знак
+препинания) печатается в новой раскладке: `реезыЖ..` становится `https://`.
+
+Выделенный фрагмент целиком копируется (`Ctrl+C`), переводится и вставляется
+одним `Ctrl+V`. Прежнее содержимое буфера возвращается. Если вставка не
+подтвердилась, демон стирает выделение и набирает текст клавишами.
+
+Отмена возвращает только последнюю замену. Более ранние откатить нельзя:
+поле ввода чужое, и стирание затронуло бы уже набранный текст.
 
 ---
 
-## Функции
+## Как решается автопереключение
 
-### A. Swap последнего слова (default: `Alt+'`)
+Слово проверяется на границе, а не на каждой букве.
 
-Определяет "последнее слово" как последовательность символов до ближайшей
-левой границы слова (пробел, пунктуация, перевод строки). Гифен `-` и
-апостроф `'` считаются частью слова (аналогично Punto).
+1. Слово из списка «Не переключать» остаётся как набрано.
+2. Если набранная форма есть в словаре текущей раскладки, она остаётся.
+3. Если форма в другой раскладке есть в другом словаре и в слове не меньше
+   `min_word_length` букв, раскладка меняется.
+4. Короткие русские слова (`я`, `ты`, `мы`, `да` и короткий список рядом с
+   ними) переключаются с английской раскладки и короче этого порога.
+5. Технические куски (`https`, `www`, `.com` и похожие) с русской раскладки
+   переключаются на английскую и с английской не уходят.
+6. Слово, которого нет ни в одном словаре, сравнивается по биграммам. Порог
+   для таких слов не ниже 0,55, чтобы случайное сходство не меняло текст.
 
-**Алгоритм (daemon):**
-1. Ведёт `wordBuffer` из реальных key events.
-2. На hotkey удаляет слово через backspace (по codepoint count).
-3. Вставляет swapped-текст через `wtype` (или fallback `wl-copy + Ctrl+V`).
-4. Обновляет `lastWord`, чтобы повторное нажатие делало обратный swap (round-trip).
+Словари ставятся в `/usr/share/rocket-switcher/dict` (`en.txt`, `ru.txt`,
+около 48 тысяч слов в каждом). Свои дополнения и исключения читаются из
+`~/.config/rocket-switcher/dict/`:
 
-### B. Swap выделенного текста (default: `Alt+Shift+'`)
+| Файл | Эффект |
+|------|--------|
+| `never.txt` | не переключать ни эту форму, ни перевод |
+| `always.txt` | предпочесть перевод, если набранного слова в словаре нет |
+| `en.txt`, `ru.txt` | добавить слова к системному словарю |
 
-1. Делает `Ctrl+C` и читает clipboard (`wl-paste -n`).
-2. Если есть однотокенное выделение — вставляет swapped.
-3. Если выделения нет/не поддерживается — fallback к `swap_last`.
+В окне настроек список «Не переключать» пишет `never.txt`, по одному слову в
+строке. Строка с `#` — комментарий. `Ё` в словаре совпадает с `Е`.
 
-**Ограничения selection под Wayland:**
+Клавиша, которая хотя бы в одной раскладке даёт букву, остаётся внутри слова
+(запятая на JCUKEN — это `б`). Пробел, Enter и клавиша, которая в обеих
+раскладках даёт знак препинания, заканчивают слово.
 
-| Toolkit | Статус |
-|---------|--------|
-| Qt 5/6 (KDE, Qt apps) | ✅ работает (text-input-v3 surrounding_text) |
-| GTK4 | ✅ работает |
-| GTK3 (XWayland) | ⚠️ может не предоставлять anchor ≠ cursor |
-| Electron (Wayland native) | ⚠️ частично; зависит от версии |
-| Electron (XWayland mode) | ⚠️ зависит от поведения clipboard/hotkeys |
-| Konsole / terminal emulators | ⚠️ часто не реализуют text-input surrounding_text |
+---
 
-При отсутствии selection срабатывает fallback `swap_last`.
+## Значок в трее
 
-### C. Auto-switch (default: `Alt+Shift+A`)
+После входа в систему запускается `rocket-switcher-config --tray`. Ракета
+нарисована так же плоско, как остальные значки панели. Кружок справа внизу:
 
-Автозамена срабатывает **только на границе слова** (space/enter/punctuation):
+| Кружок | Состояние |
+|--------|-----------|
+| зелёный | демон работает, автопереключение включено |
+| красный | демон работает, автопереключение выключено |
+| серый | демон не запущен |
+
+Меню значка переключает автозамену сразу, без перезапуска службы. Щелчок
+открывает и прячет настройки. Крестик окна прячет его в трей. «Выход» убирает
+только значок, демон продолжает работать.
+
+Кнопка «Сохранить» в настройках перезапускает пользовательскую службу, чтобы
+подхватить сочетания и пороги. Список исключений демон перечитывает ещё до
+перезапуска.
+
+---
+
+## Окно настроек
+
+Меню приложений: **Ракета** (`rocket-switcher-config`).
+
+Вкладки: **Демон**, **Горячие клавиши**, **Автопереключение**, **Отладка**.
+Кнопки: **Сохранить**, **Закрыть**, **По умолчанию**.
+
+Конфиг:
 
 ```
-Пользователь набрал: "ghbdtn " (= "привет" на EN-раскладке)
-                            ^--- граница слова
-→ daemon видит boundary key
-→ проверяет слово "ghbdtn"
-→ bigramScore("ghbdtn", EN) = 0   (нет EN биграм)
-   bigramScore("привет", RU) = X  (есть RU биграм)
-→ разница > threshold → swap
-→ итого в поле: "привет "
+~/.config/rocket-switcher/daemon.ini
 ```
 
-**Анти-дерганье:** после успешного auto-switch токен помечается как `frozen`;
-новые символы → новый токен → `frozen` снимается.
+```ini
+[daemon]
+passthrough=false
+inject_paste_first=false
 
-### D. Таблица символов JCUKEN ↔ QWERTY
+[hotkeys]
+swap_last=Alt+apostrophe
+swap_selection=Alt+shift+apostrophe
+toggle_auto=Alt+shift+a
+undo=Alt+shift+BackSpace
 
-Стандартная российская раскладка (33 буквы + Ё):
+[autoswitch]
+enabled=true
+min_word_length=3
+confidence_threshold=0.18
+min_plausible_dominant_bigram_score=0.42
+```
+
+`passthrough=true` только передаёт клавиши дальше, без замены и сочетаний.
+`inject_paste_first=true` на Wayland сначала пробует вставку из буфера, потом
+`wtype`. Раскладки KDE демон берёт из `~/.config/kxkbrc`, индексы в ini
+обычно писать не нужно.
+
+`Alt+Shift+A` тоже переключает автозамену и записывает `enabled` в этот файл.
+
+---
+
+## Таблица JCUKEN ↔ QWERTY
 
 | Рус | En | | Рус | En |
 |-----|----|-|-----|-----|
@@ -140,389 +160,150 @@ punto-switcher/
 | б   | ,  | | ю   | .   |
 | ё   | `` ` `` | | | |
 
-Регистр сохраняется: `Й→Q`, `й→q`, `Ё→`` ` ```.
+Регистр сохраняется: `Й` ↔ `Q`, `й` ↔ `q`.
 
 ---
 
-## Hotkeys по умолчанию
+## Установка
 
-| Действие | Hotkey (daemon.ini формат) | Изменяемый |
-|----------|------------------------|-----------|
-| Swap Last Word | `Alt+apostrophe` | ✅ GUI / config |
-| Swap Selection | `Alt+shift+apostrophe` | ✅ GUI / config |
-| Toggle Auto-Switch | `Alt+shift+a` | ✅ GUI / config |
-| Undo Last Switch | `Alt+shift+BackSpace` | ✅ GUI / config |
+Нужны `wtype` и `wl-clipboard`. После установки пакета пользователь попадает
+в группу `input`. Группа действует со следующего входа в систему.
 
-**Конфликты:** если системный хоткей перехватывается раньше daemon
-(например, глобальный shortcut KWin), действие Punto не сработает.
-Проверяйте логи через `journalctl --user | grep -i rocket-switcher-daemon`.
+Служба пользователя: `rocket-switcher-daemon.service`
+(`sg input -c /usr/bin/rocket-switcher-daemon`). Её же поднимает автозапуск
+сессии.
+
+```bash
+sudo apt install -y /tmp/rocket-switcher.deb
+systemctl --user restart rocket-switcher-daemon.service
+pgrep -af rocket-switcher-daemon
+```
+
+Файл `.deb` из домашнего каталога apt часто не может прочитать. Его копируют
+в `/tmp` и ставят оттуда. На Fedora пакет называется
+`rocket-switcher-1.0.0-<ревизия>.fc41` и ставится через `dnf`. Номер ревизии
+совпадает с первой строкой `packaging/deb/changelog`. Суффикс `.fc41` — метка
+Fedora, не другой номер версии.
+
+Остановить демон вручную: `rocket-switcher-stop`.
 
 ---
 
-## Эвристика Auto-Switch (формальное описание)
+## Сборка
 
-```
-shouldSwitch(word, layout):
-  if NOT enabled: return false
-  if count(letters in word) < minWordLength: return false
-  if contains(digit | '@' | '://'): return false
-
-  swapped = CharMapping::swapWord(word)
-  otherLayout = opposite(layout)
-
-  score_orig   = bigramScore(word,    layout)
-  score_swapped = bigramScore(swapped, otherLayout)
-
-  return (score_swapped - score_orig) > confidenceThreshold
-```
-
-`bigramScore(text, layout)`:  
-= (число биграм из `text`, входящих в top-50 биграм `layout`) / (общее число буквенных биграм в `text`)
-
-**Параметры по умолчанию:**
-- `minWordLength = 3`
-- `confidenceThreshold = 0.15`
-
-**Биграмные модели:** top-50 биграм взяты из открытых корпусов (НКРЯ для RU,
-BNC/Wikipedia для EN). Расширение до top-100 и добавление тригармных моделей
-запланировано как Итерация 3.
-
----
-
-## Как собрать
-
-### Требования
-
-**Общие:**
-```
-cmake >= 3.20, gcc/clang C++17
-```
-
-**Ubuntu/Debian:**
-```bash
-sudo apt install \
-  cmake build-essential pkg-config \
-  libevdev-dev libxkbcommon-dev \
-  qt6-base-dev extra-cmake-modules \
-  libgtest-dev
-```
-
-**Fedora:**
-```bash
-sudo dnf install \
-  cmake gcc-c++ \
-  libevdev-devel libxkbcommon-devel \
-  qt6-qtbase-devel extra-cmake-modules gtest-devel
-```
-
-### Сборка из исходников
+Зависимости Ubuntu:
 
 ```bash
-git clone https://github.com/your-org/punto-switcher
-cd punto-switcher
+sudo apt install cmake build-essential pkg-config debhelper dh-cmake \
+  qt6-base-dev libevdev-dev libxkbcommon-dev libgtest-dev
+```
 
-# Конфигурация
-cmake -B build \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_INSTALL_PREFIX=/usr
+```bash
+git clone https://github.com/vsdesk/PUNTO
+cd PUNTO
 
-# Сборка
-cmake --build build -j$(nproc)
-
-# (опционально) Тесты
-cmake -B build -DBUILD_TESTING=ON
+cmake -B build -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DBUILD_FCITX=OFF
 cmake --build build -j$(nproc)
 ctest --test-dir build --output-on-failure
-
-# Установка (или в staging для пакетирования)
-sudo cmake --install build
 ```
 
----
+Пакет `.deb` собирает `./scripts/build-deb.sh`. Версию он берёт из первой
+строки changelog. Готовый файл лежит в `dist/` и в
+`rocket-switcher_<версия>_latest.deb`.
 
-## Как собрать .deb (Ubuntu/Debian)
-
-### Локально через Docker
+`.rpm` собирается в Fedora 41:
 
 ```bash
-# Собрать Docker-образ
-docker build -f docker/Dockerfile.deb -t punto-deb-builder .
-
-# Запустить сборку → артефакт в ./dist/
+docker build -f docker/Dockerfile.rpm -t rocket-rpm-builder .
 mkdir -p dist
-docker run --rm -v "$PWD/dist:/dist" punto-deb-builder
-
-# Установить
-sudo dpkg -i dist/rocket-switcher_1.0.0-*_amd64.deb
-sudo apt-get install -f   # устранить зависимости если нужно
+docker run --rm -v "$PWD/dist:/dist" rocket-rpm-builder
 ```
 
-### Локально без Docker (Ubuntu 24.04)
+Имя и ревизия RPM читаются из того же changelog. Локально на Fedora то же
+делают `rpmbuild` и `packaging/rpm/rocket-switcher.spec`: в команду нужно
+передать `--define "deb_upstream …"` и `--define "deb_revision …"`, как в
+`docker/Dockerfile.rpm`.
 
-```bash
-# Установить build-deps (см. packaging/deb/control)
-sudo apt-get build-dep .
+Модуль Fcitx5 в обычной сборке выключен (`BUILD_FCITX=OFF`). Рабочий путь —
+демон.
 
-# Создать orig tarball и собрать
-tar czf ../punto-switcher_1.0.0.orig.tar.gz ../punto-switcher/
-dpkg-buildpackage -us -uc -b -j$(nproc)
-# Пакет появится в ../*.deb
+---
+
+## Из чего состоит репозиторий
+
+```
+src/core/          словарь, таблица JCUKEN, эвристика
+src/daemon/        evdev/uinput, раскладка KDE, сочетания
+src/gui/           окно настроек и значок трея
+data/dict/         en.txt и ru.txt
+packaging/deb/     changelog, control, установка службы и автозапуска
+packaging/rpm/     rocket-switcher.spec
+docker/Dockerfile.rpm
+scripts/build-deb.sh
 ```
 
 ---
 
-## Как собрать .rpm (Fedora)
-
-### Локально через Docker
+## Диагностика
 
 ```bash
-docker build -f docker/Dockerfile.rpm -t punto-rpm-builder .
-
-mkdir -p dist
-docker run --rm -v "$PWD/dist:/dist" punto-rpm-builder
-
-# Установить на Fedora
-sudo dnf install dist/rocket-switcher-1.0.0-*.fc41.x86_64.rpm
+systemctl --user status rocket-switcher-daemon.service
+journalctl --user -u rocket-switcher-daemon.service --since "30 min ago"
 ```
 
-### Локально на Fedora
+После сна или переподключения Bluetooth демон сам заново открывает
+клавиатуры. Если клавиши всё же пропали:
 
 ```bash
-sudo dnf install rpm-build rpmdevtools
-rpmdev-setuptree
-
-# Создать исходник
-# Имя и номер берутся из первой строки packaging/deb/changelog (как у .deb).
-line=$(grep -m1 -E '^[a-z0-9][a-z0-9.+-]* \(' packaging/deb/changelog)
-name=$(printf '%s\n' "$line" | awk '{print $1}')
-full=$(printf '%s\n' "$line" | sed -n 's/.*(\([^)]*\)).*/\1/p')
-upstream=$(printf '%s\n' "$full" | sed 's/-[0-9][0-9]*$//')
-revision=$(printf '%s\n' "$full" | sed 's/.*-//')
-tar czf ~/rpmbuild/SOURCES/${name}-${upstream}.tar.gz \
-    --transform "s,^,${name}-${upstream}/," .
-cp packaging/rpm/rocket-switcher.spec ~/rpmbuild/SPECS/
-
-rpmbuild -bb ~/rpmbuild/SPECS/rocket-switcher.spec \
-    --define "deb_upstream ${upstream}" \
-    --define "deb_revision ${revision}"
-# Пакет в ~/rpmbuild/RPMS/x86_64/
+systemctl --user restart rocket-switcher-daemon.service
 ```
+
+Если сочетание молчит, его уже занял KWin или другое приложение. В журнале
+демона будет предупреждение. Сочетание меняется на вкладке «Горячие клавиши».
 
 ---
 
-## Как установить и активировать
+## Проверка на KDE Wayland
 
-### Ubuntu/Debian
-
-```bash
-sudo dpkg -i dist/rocket-switcher_*_amd64.deb
-sudo apt-get -f install -y
-```
-
-### Fedora
-
-```bash
-sudo dnf install dist/rocket-switcher-*.rpm
-```
-
-### Запуск daemon
-
-После установки процесс стартует автоматически через desktop autostart.
-Проверка:
-
-```bash
-pgrep -af rocket-switcher-daemon
-```
-
-Ручное управление:
-
-```bash
-rocket-switcher-stop
-rocket-switcher-daemon
-```
+1. **Последнее слово.** Раскладка EN, набрать `ghbdtn`, нажать `Alt+'`.
+   Должно стать `привет`.
+2. **Выделение.** Набрать `hello world`, выделить `hello`, нажать
+   `Alt+Shift+'`. Должно стать `руддщ`. Фраза из нескольких слов заменяется
+   целиком.
+3. **Автопереключение.** Раскладка EN, набрать `ghbdtn ` с пробелом.
+   Должно стать `привет `.
+4. **Адрес.** Раскладка RU, набрать `реезыЖ..`. Должно стать `https://`.
+5. **Исключение.** Вписать слово на вкладке «Автопереключение», сохранить,
+   набрать его в неверной раскладке. Само не переключается.
+6. **Выключатель.** `Alt+Shift+A` или меню значка. Пока выключено, `ghbdtn `
+   не меняется. Кружок на значке красный.
+7. **Отмена.** После замены нажать `Alt+Shift+Backspace`. Возвращается
+   предыдущий текст.
+8. **Сон.** Усыпить компьютер, разбудить, снова набрать `ghbdtn `. Замена
+   работает без ручного перезапуска.
 
 ---
 
-## Как запустить GUI и где хранится конфиг
+## Ограничения
 
-```bash
-rocket-switcher-config
-```
+Работает пара ru↔en. Числа, почта и адреса с `://` демон не переводит, кроме
+явных технических кусков вроде `https` и `www`.
 
-Или через меню приложений: **Settings → Punto Switcher Settings**.
+Незнакомое слово решается биграммами и иногда ошибается. Его добавляют в
+«Не переключать».
 
-**Расположение конфига daemon:**
-```
-~/.config/punto-switcher/daemon.ini
-```
+`wtype` на части композиторов недоступен. Обычная замена слова идёт через
+uinput и от `wtype` не зависит. Вставка выделения использует буфер и
+`Ctrl+V`; в терминале, где это не срабатывает, остаётся набор клавишами.
 
-Файл в INI-формате:
-```ini
-[hotkeys]
-swap_last=Alt+apostrophe
-swap_selection=Alt+shift+apostrophe
-toggle_auto=Alt+shift+a
-undo=Alt+shift+BackSpace
-
-[autoswitch]
-enabled=true
-min_word_length=3
-confidence_threshold=0.15
-min_plausible_dominant_bigram_score=0.42
-```
-
-GUI сохраняет этот файл; daemon подхватывает его при старте
-и при переключении `Alt+Shift+A`.
+Сочетание, которое перехватывает система раньше демона, до Ракета не доходит.
 
 ---
 
-## Диагностика daemon
+## Сборка в GitHub
 
-Быстрые команды:
-
-```bash
-# процесс жив?
-pgrep -af rocket-switcher-daemon
-
-# остановить/запустить вручную
-rocket-switcher-stop
-rocket-switcher-daemon
-
-# посмотреть последние сообщения daemon
-journalctl --user --since "30 min ago" --no-pager | grep -i rocket-switcher-daemon
-```
-
-Если после deep sleep/Bluetooth reconnect процесс жив, но реакции нет:
-- в актуальных версиях daemon сам делает reinit на `ENODEV/EIO/ENXIO` и
-  `POLLHUP/POLLERR/POLLNVAL`;
-- если не восстановился, перезапусти `rocket-switcher-daemon` вручную и
-  проверь журнал.
-
----
-
-## Manual QA Checklist (KDE Wayland)
-
-### Подготовка
-- Установить пакет и убедиться, что `rocket-switcher-daemon` запущен.
-- Открыть Kate или любое Qt-приложение с текстовым полем.
-
-### 1. Swap Last Word
-1. Переключиться на EN раскладку.
-2. Набрать `ghbdtn` (физические клавиши g-h-b-d-t-n → на EN дают "ghbdtn").
-3. Нажать **Alt+'**.
-4. ✅ Ожидается: "ghbdtn" → "привет".
-
-### 2. Swap Selection
-1. Набрать `hello world`.
-2. Выделить слово `hello`.
-3. Нажать **Alt+Shift+'**.
-4. ✅ Ожидается: "hello" → "руддщ".
-
-### 3. Auto-Switch (EN-layout, Russian word)
-1. Держать EN раскладку активной.
-2. Набрать `ghbdtn ` (с пробелом в конце).
-3. ✅ Ожидается: текст автоматически заменяется на `привет `.
-
-### 4. Anti-flicker при быстром наборе
-1. Быстро набрать 15+ символов смешанного текста.
-2. ✅ Ожидается: нет хаотичных замен посередине слова.
-
-### 5. Смена hotkey через GUI
-1. Открыть `rocket-switcher-config`.
-2. В "Swap Last Word" нажать новое сочетание, напр. **Ctrl+Space**.
-3. Save & Reload.
-4. ✅ Ожидается: новый хоткей работает, Alt+' больше не срабатывает.
-
-### 6. Toggle Auto-Switch
-1. Нажать **Alt+Shift+A** — авто-свитч отключается.
-2. Набрать `ghbdtn ` — замена НЕ происходит.
-3. Нажать **Alt+Shift+A** снова — авто-свитч включается.
-4. ✅ Всё как ожидается.
-
-### 7. URL-кейс
-1. На RU раскладке набрать `реезыЖ..`.
-2. ✅ Ожидается: `https://`.
-
-### 8. Проверка случайного UPPERCASE
-1. Длительно печатать обычный текст с Alt+' и автосвитчем.
-2. ✅ Ожидается: нет внезапного перевода слов в UPPERCASE без нажатого Shift/CapsLock.
-
-### 9. Deep sleep / Bluetooth reconnect
-1. Увести ПК в глубокий сон и разбудить.
-2. На BT-клавиатуре набрать `ghbdtn `.
-3. ✅ Ожидается: автосвитч работает без ручного рестарта daemon.
-
----
-
-## Известные ограничения
-
-1. **`wtype` может быть недоступен в compositor** — тогда daemon использует
-   fallback `wl-copy + Ctrl+V` (для терминалов поддержка ограничена).
-
-2. **Auto-switch без словаря** — эвристика bigram-scoring даёт ~80-90% precision
-   на словах длиной ≥5 символов. Короткие слова (3-4 буквы) чаще дают
-   false-positive. Можно увеличить `MinWordLength = 5` и `ConfidenceThreshold = 0.25`.
-
-3. **Только пара ru↔en** — намеренное ограничение. Другие раскладки не
-   обрабатываются и не должны влиять на логику (отфильтровываются через
-   `dominantLayout()`).
-
-4. **Пунктуация ъ/ь/ъ в mapping** — `ъ` → `]`, `ь` → `m`. При наборе
-   в EN-раскладке символы `[`, `]`, `;`, `'` интерпретируются как
-   Cyrillic. Если пользователь печатает код с этими символами — включить
-   режим "только ручной swap" (`AutoSwitch=false`).
-
-5. **Ё** — маппится на `` ` `` (backtick). В большинстве слов Ё корректно
-   обрабатывается. В режиме auto-switch: слова с Ё встречаются редко, поэтому
-   влияние на false-positive минимально.
-
-6. **Deep sleep / Bluetooth reconnect** — input fd могут отваливаться.
-   В актуальной версии daemon делает in-process reinit на `ENODEV/EIO/ENXIO`
-   и на poll-события `POLLHUP/POLLERR/POLLNVAL`.
-
-7. **Конфликты хоткеев** — если системный биндинг перехватывает хоткей раньше
-   daemon (напр. KWin global shortcut), хоткей Punto не сработает. Решение:
-   убрать конфликт в System Settings → Shortcuts, или сменить хоткей в GUI.
-
----
-
-## Зависимости runtime (точный список)
-
-| Пакет (Ubuntu) | Назначение |
-|----------------|-----------|
-| `libevdev2` | Чтение input events |
-| `libxkbcommon0` | Декод клавиш и раскладки |
-| `wl-clipboard` | fallback insert (`wl-copy`/`wl-paste`) |
-| `libqt6widgets6` | Qt6 GUI |
-| `libqt6core6` | Qt6 core |
-| `libqt6gui6` | Qt6 GUI rendering |
-
-Dev-либы (`*-dev`) в рантайм не попадают. `${shlibs:Depends}` в debhelper
-автоматически определяет точные символьные зависимости через `ldd`.
-
----
-
-## CI/CD
-
-GitHub Actions (`.github/workflows/build-packages.yml`):
-
-```
-push/PR → unit-tests (Ubuntu 24.04)
-         ↓ (if pass)
-       ┌─────────────────┬─────────────────┐
-       │  build-deb      │  build-rpm      │
-       │ (Docker Ubuntu) │ (Docker Fedora) │
-       └─────────────────┴─────────────────┘
-            ↓ (on tag v*)
-         GitHub Release (attaches .deb + .rpm)
-```
-
-Артефакты доступны в Actions → Artifacts на 30 дней, и в Releases при тегировании.
-
----
-
-## Планы развития
-
-Словарь уже решает обычные слова, поэтому триграммы, фильтр Блума и журнал из нескольких отмен не делаем: фильтр путает «это слово» с «этого слова нет», а отмена не последней замены стирает уже набранный текст. Отмена одной последней замены есть (`Alt+Shift+Backspace`).
-
-В настройках, вкладка «Автопереключение», список «Не переключать» пишется в `~/.config/rocket-switcher/dict/never.txt`. Значок в трее включает и выключает автопереключение, демон при этом не перезапускается. Закрытие окна прячет его в трей; «Выход» в меню значка закрывает только значок.
+`.github/workflows/build-packages.yml` на push и pull request гоняет тесты,
+затем `.deb` на Ubuntu 24.04 и `.rpm` в Docker Fedora 41. Тег `v*` публикует
+оба пакета в GitHub Release. Номер пакета — ревизия из changelog
+(`1.0.0-140` и дальше), не имя тега само по себе. Тег ставят на коммит с
+нужной первой строкой changelog.
