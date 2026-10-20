@@ -514,6 +514,22 @@ bool PuntoDaemon::reinitKeyboardDevices(const char* logReason) {
     return true;
 }
 
+PuntoDaemon::Reacquire PuntoDaemon::reacquireIfKeyboardSetChanged() {
+    const auto now = std::chrono::steady_clock::now();
+    if ((now - lastTopologyProbe_) <= std::chrono::seconds(3)) return Reacquire::No;
+    lastTopologyProbe_ = now;
+    if (!io_.hasDeviceSetChanged(cfg_.devicePath)) {
+        topologyMismatchStreak_ = 0;
+        return Reacquire::No;
+    }
+    // Two probes in a row: the node is still being created on the first one.
+    if (++topologyMismatchStreak_ < 2) return Reacquire::No;
+    if (!reinitKeyboardDevices("keyboard set changed, reopening devices"))
+        return Reacquire::Failed;
+    topologyMismatchStreak_ = 0;
+    return Reacquire::Yes;
+}
+
 void PuntoDaemon::recoverStuckModifiersFromXkb() {
     if (!xkbState_) return;
     const bool shiftActive =
@@ -770,9 +786,6 @@ void PuntoDaemon::processEvent(const input_event& ev) {
 
     const unsigned int code = ev.code;
     const int          val  = ev.value;
-
-    // Track last non-release key event to implement silence-based reacquire logic.
-    if (val != 0) lastInputEventAt_ = std::chrono::steady_clock::now();
 
     if (puntoDebugEnabled() && (val == 1 || val == 2)) {
         std::fprintf(stderr, "rocket-switcher-daemon: EV_KEY code=%u value=%d\n", code, val);
@@ -1065,11 +1078,10 @@ int PuntoDaemon::run() {
                       "will not work. With sg(1), export it from your session before sg (see loginctl show-session).\n";
     }
 
-    auto lastInitAt          = std::chrono::steady_clock::now();
-    bool didSilenceReinit    = false;
-    auto lastTopologyProbe = std::chrono::steady_clock::now();
-    double lastBootSeconds   = monotonicBootSeconds();
-    int topologyMismatchStreak = 0;
+    auto lastInitAt        = std::chrono::steady_clock::now();
+    lastTopologyProbe_     = lastInitAt;
+    topologyMismatchStreak_ = 0;
+    double lastBootSeconds = monotonicBootSeconds();
     int consecutiveNoDeviceInits = 0;
     while (!gStopRequested) {
         const auto& devs = io_.devices();
@@ -1095,9 +1107,8 @@ int PuntoDaemon::run() {
             }
             consecutiveNoDeviceInits = 0;
             lastInitAt = std::chrono::steady_clock::now();
-            didSilenceReinit = false;
-            topologyMismatchStreak = 0;
-            lastTopologyProbe = lastInitAt;
+            topologyMismatchStreak_ = 0;
+            lastTopologyProbe_ = lastInitAt;
             seedCapsLockFromHardware();
         } else {
             consecutiveNoDeviceInits = 0;
@@ -1119,9 +1130,8 @@ int PuntoDaemon::run() {
                 lastBootSeconds = monotonicBootSeconds();
                 const auto nowResume = std::chrono::steady_clock::now();
                 lastInitAt               = nowResume;
-                lastTopologyProbe        = nowResume;
-                didSilenceReinit         = false;
-                topologyMismatchStreak   = 0;
+                lastTopologyProbe_        = nowResume;
+                topologyMismatchStreak_   = 0;
                 consecutiveNoDeviceInits = 0;
                 continue;
             }
@@ -1159,49 +1169,23 @@ int PuntoDaemon::run() {
             lastBootSeconds = monotonicBootSeconds();
             const auto nowResume = std::chrono::steady_clock::now();
             lastInitAt               = nowResume;
-            lastTopologyProbe        = nowResume;
-            didSilenceReinit         = false;
-            topologyMismatchStreak   = 0;
+            lastTopologyProbe_        = nowResume;
+            topologyMismatchStreak_   = 0;
             consecutiveNoDeviceInits = 0;
             continue;
         }
         if (pollRes <= 0) {
             lastBootSeconds = bootAfterPoll;
 
-            const auto now = std::chrono::steady_clock::now();
-
-            // After suspend/resume or reconnect, a Bluetooth keyboard may appear
-            // 10-15s later. If we are in a "silent" period after init/start,
-            // do a single in-process reopen to pick up newly appeared devices.
-            if (!didSilenceReinit
-                && (now - lastInitAt) > std::chrono::seconds(12)
-                && (now - lastInputEventAt_) > std::chrono::seconds(12)) {
-                if (!reinitKeyboardDevices("input silence after init, reinitializing devices")) {
-                    teardownXkb();
-                    return 1;
-                }
-                lastInitAt = now;
-                didSilenceReinit = true;
-                topologyMismatchStreak = 0;
-                lastTopologyProbe = now;
-            }
-
-            if ((now - lastTopologyProbe) > std::chrono::seconds(3)) {
-                lastTopologyProbe = now;
-                if (io_.hasDeviceSetChanged(cfg_.devicePath)) {
-                    ++topologyMismatchStreak;
-                    if (topologyMismatchStreak >= 2) {
-                        if (!reinitKeyboardDevices("keyboard topology changed stably, reinitializing devices")) {
-                            teardownXkb();
-                            return 1;
-                        }
-                        topologyMismatchStreak = 0;
-                        didSilenceReinit = false;
-                        lastInitAt = now;
-                    }
-                } else {
-                    topologyMismatchStreak = 0;
-                }
+            switch (reacquireIfKeyboardSetChanged()) {
+            case Reacquire::Failed:
+                teardownXkb();
+                return 1;
+            case Reacquire::Yes:
+                lastBootSeconds = monotonicBootSeconds();
+                continue;
+            case Reacquire::No:
+                break;
             }
             continue;
         }
@@ -1213,8 +1197,8 @@ int PuntoDaemon::run() {
 
         for (size_t i = 0; i < devs.size(); ++i) {
             if (pfds[i].revents & (POLLERR | POLLHUP | POLLNVAL)) {
-                std::cerr << "rocket-switcher-daemon: poll reports device error/hup (revents="
-                          << pfds[i].revents << "), exiting for systemd restart\n";
+                std::cerr << "rocket-switcher-daemon: keyboard hung up (revents="
+                          << pfds[i].revents << "), reopening devices\n";
                 needReinitAfterDeviceLoss = true;
                 break;
             }
@@ -1227,7 +1211,7 @@ int PuntoDaemon::run() {
                     if (rc == -EAGAIN || rc == -EWOULDBLOCK) break;
                     if (rc == -ENODEV || rc == -EIO || rc == -ENXIO) {
                         std::cerr << "rocket-switcher-daemon: input device became unavailable (rc=" << rc
-                                  << "), exiting for systemd restart\n";
+                                  << "), reopening devices\n";
                         needReinitAfterDeviceLoss = true;
                         break;
                     }
@@ -1266,11 +1250,20 @@ int PuntoDaemon::run() {
             }
             lastBootSeconds          = monotonicBootSeconds();
             lastInitAt               = std::chrono::steady_clock::now();
-            lastTopologyProbe        = lastInitAt;
-            didSilenceReinit         = false;
-            topologyMismatchStreak   = 0;
+            lastTopologyProbe_        = lastInitAt;
+            topologyMismatchStreak_   = 0;
             consecutiveNoDeviceInits = 0;
             continue;
+        }
+        switch (reacquireIfKeyboardSetChanged()) {
+        case Reacquire::Failed:
+            teardownXkb();
+            return 1;
+        case Reacquire::Yes:
+            lastBootSeconds = monotonicBootSeconds();
+            continue;
+        case Reacquire::No:
+            break;
         }
         lastBootSeconds = monotonicBootSeconds();
     }

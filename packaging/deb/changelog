@@ -1,3 +1,9 @@
+rocket-switcher (1.0.0-141) unstable; urgency=medium
+
+  * Grab a Bluetooth keyboard again after its event node comes back.
+
+ -- Raketa Maintainer <maintainer@example.com>  Tue, 20 Oct 2026 09:30:00 +0300
+
 rocket-switcher (1.0.0-140) unstable; urgency=medium
 
   * The tray icon is a monochrome rocket. A small dot shows whether the daemon is running.

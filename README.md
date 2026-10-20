@@ -251,8 +251,10 @@ systemctl --user status rocket-switcher-daemon.service
 journalctl --user -u rocket-switcher-daemon.service --since "30 min ago"
 ```
 
-После сна или переподключения Bluetooth демон сам заново открывает
-клавиатуры. Если клавиши всё же пропали:
+После сна демон заново открывает клавиатуры. Если Bluetooth-клавиатура
+появляется на несколько секунд позже, она захватывается следующим
+проходом, даже когда в этот момент уже печатают на другой клавиатуре или
+двигают мышь. Если клавиши всё же пропали:
 
 ```bash
 systemctl --user restart rocket-switcher-daemon.service

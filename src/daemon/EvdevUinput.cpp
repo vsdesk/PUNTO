@@ -344,13 +344,11 @@ bool EvdevUinput::hasDeviceSetChanged(const std::string& userPath) const {
         have.insert(std::to_string(static_cast<unsigned long long>(st.st_dev)) + ":" +
                     std::to_string(static_cast<unsigned long long>(st.st_ino)));
     }
-    // Stable-change policy (avoid thrash):
-    // reinit only when one of currently opened devices disappeared/replaced.
-    // New devices appearing are handled by a separate silence/resume logic in the daemon.
-    for (const auto& opened : have) {
-        if (!wanted.count(opened)) return true;
-    }
-    return false;
+    // A Bluetooth keyboard drops its event node on a link blip and comes back
+    // as a new node a few seconds later. Both a missing node and a new one
+    // must reopen the set; the caller waits for two stable probes so a
+    // device that is still enumerating does not cause a reopen loop.
+    return have != wanted;
 }
 
 void EvdevUinput::forward(const input_event& ev) {

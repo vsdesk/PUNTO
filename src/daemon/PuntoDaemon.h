@@ -95,8 +95,8 @@ private:
     std::chrono::steady_clock::time_point letterRepeatWindowStart_{};
     int                                   letterRepeatCount_ = 0;
 
-    // Used for silence-based device reacquire after resume/connection delay.
-    std::chrono::steady_clock::time_point lastInputEventAt_ = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point lastTopologyProbe_{};
+    int topologyMismatchStreak_ = 0;
 
     // Settings window and tray: STATUS / AUTO / RELOAD. -1 when the socket is down.
     int controlFd_ = -1;
@@ -123,6 +123,10 @@ private:
     /// Release grabs, reset tracker/key state, reopen keyboards (suspend/resume, topology, etc.).
     /// Returns false if io_.init fails (caller should teardown xkb and exit).
     bool reinitKeyboardDevices(const char* logReason);
+    /// Reopen when a keyboard disappeared or a new one appeared (Bluetooth reconnect).
+    /// No = nothing to do, Yes = reopened, Failed = reopen failed.
+    enum class Reacquire { No, Yes, Failed };
+    Reacquire reacquireIfKeyboardSetChanged();
 
     void processEvent(const input_event& ev);
 
