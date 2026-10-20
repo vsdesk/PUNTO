@@ -1,3 +1,9 @@
+rocket-switcher (1.0.0-143) unstable; urgency=medium
+
+  * Tray icon is a colored rounded square with the letter Р.
+
+ -- Raketa Maintainer <maintainer@example.com>  Tue, 20 Oct 2026 14:35:00 +0300
+
 rocket-switcher (1.0.0-142) unstable; urgency=medium
 
   * Optional typo fixes, with an editable replacement list.

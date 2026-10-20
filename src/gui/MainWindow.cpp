@@ -114,12 +114,14 @@ bool notifyExistingInstance() {
     return std::strncmp(buf, "OK", 2) == 0;
 }
 
-// Flat monochrome rocket, same weight as Breeze status icons. The service
-// state is a small dot: green running with auto-switch, red auto-switch off,
-// gray when the daemon is not listening.
-QIcon rocketIcon(bool statusDot, bool on, bool alive) {
+// Rounded square the size of the other tray glyphs. The fill is the status:
+// green when auto-switch is on, red when it is off, gray when the daemon
+// is not listening. The letter is the product mark.
+QIcon markIcon(bool on, bool alive) {
     QIcon icon;
-    const QColor ink(0xfc, 0xfc, 0xfc);
+    const QColor bg = !alive ? QColor(110, 110, 110)
+                              : on ? QColor(46, 125, 50)
+                                   : QColor(183, 28, 28);
     for (const int logical : {22, 32}) {
         for (const int scale : {1, 2}) {
             QPixmap pm(logical * scale, logical * scale);
@@ -128,44 +130,16 @@ QIcon rocketIcon(bool statusDot, bool on, bool alive) {
             QPainter p(&pm);
             p.setRenderHint(QPainter::Antialiasing, true);
             const qreal S = logical;
-            const QRectF box = statusDot
-                                   ? QRectF(S * 0.04, S * 0.02, S * 0.78, S * 0.78)
-                                   : QRectF(S * 0.12, S * 0.06, S * 0.76, S * 0.88);
-            auto X = [&](qreal u) { return box.left() + u * box.width(); };
-            auto Y = [&](qreal v) { return box.top() + v * box.height(); };
-
+            const qreal inset = S * 0.06;
+            const QRectF box(inset, inset, S - 2 * inset, S - 2 * inset);
             p.setPen(Qt::NoPen);
-            p.setBrush(ink);
-            QPolygonF nose;
-            nose << QPointF(X(0.50), Y(0.00))
-                 << QPointF(X(0.28), Y(0.42))
-                 << QPointF(X(0.72), Y(0.42));
-            p.drawPolygon(nose);
-            p.drawRect(QRectF(X(0.28), Y(0.34), box.width() * 0.44, box.height() * 0.40));
-            QPolygonF finL;
-            finL << QPointF(X(0.28), Y(0.52))
-                 << QPointF(X(0.02), Y(0.78))
-                 << QPointF(X(0.28), Y(0.74));
-            QPolygonF finR;
-            finR << QPointF(X(0.72), Y(0.52))
-                 << QPointF(X(0.98), Y(0.78))
-                 << QPointF(X(0.72), Y(0.74));
-            p.drawPolygon(finL);
-            p.drawPolygon(finR);
-            p.drawRect(QRectF(X(0.40), Y(0.70), box.width() * 0.20, box.height() * 0.16));
-
-            p.setCompositionMode(QPainter::CompositionMode_Clear);
-            p.drawEllipse(QPointF(X(0.50), Y(0.50)), box.width() * 0.09, box.height() * 0.09);
-            p.setCompositionMode(QPainter::CompositionMode_SourceOver);
-
-            if (statusDot) {
-                const qreal d = S * 0.20;
-                const QRectF dot(box.right() - d * 1.05, box.bottom() - d * 1.05, d, d);
-                p.setBrush(!alive ? QColor(0xa0, 0xa0, 0xa0)
-                                  : on ? QColor(0x3c, 0xc4, 0x5a)
-                                       : QColor(0xe0, 0x55, 0x55));
-                p.drawEllipse(dot);
-            }
+            p.setBrush(bg);
+            p.drawRoundedRect(box, box.width() * 0.22, box.height() * 0.22);
+            p.setPen(Qt::white);
+            QFont font(QStringLiteral("sans"), 1, QFont::Bold);
+            font.setPixelSize(qRound(box.height() * 0.62));
+            p.setFont(font);
+            p.drawText(box, Qt::AlignCenter, QStringLiteral("Р"));
             icon.addPixmap(pm);
         }
     }
@@ -176,7 +150,7 @@ QIcon rocketIcon(bool statusDot, bool on, bool alive) {
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     setWindowTitle(tr("Ракета — настройки"));
-    setWindowIcon(rocketIcon(false, true, true));
+    setWindowIcon(markIcon(true, true));
     setMinimumSize(520, 560);
     buildUI();
     loadConfig();
@@ -759,7 +733,7 @@ void MainWindow::setupTray() {
     if (!QSystemTrayIcon::isSystemTrayAvailable()) return;
     QApplication::setQuitOnLastWindowClosed(false);
 
-    trayIcon_ = new QSystemTrayIcon(rocketIcon(true, true, false), this);
+    trayIcon_ = new QSystemTrayIcon(markIcon(true, false), this);
     auto* menu = new QMenu(this);
     trayAuto_ = menu->addAction(tr("Автопереключение"));
     trayAuto_->setCheckable(true);
@@ -775,7 +749,7 @@ void MainWindow::setupTray() {
             refreshTray();
             return;
         }
-        trayIcon_->setIcon(rocketIcon(true, on, true));
+        trayIcon_->setIcon(markIcon(on, true));
         trayIcon_->setToolTip(on ? tr("Ракета: автопереключение включено")
                                  : tr("Ракета: автопереключение выключено"));
         if (autoEnabled_) autoEnabled_->setChecked(on);
@@ -817,7 +791,7 @@ void MainWindow::refreshTray() {
         trayAuto_->setChecked(on);
         trayAuto_->setEnabled(alive);
     }
-    trayIcon_->setIcon(rocketIcon(true, on, alive));
+    trayIcon_->setIcon(markIcon(on, alive));
     if (!alive)
         trayIcon_->setToolTip(tr("Ракета: демон не запущен"));
     else if (on)
