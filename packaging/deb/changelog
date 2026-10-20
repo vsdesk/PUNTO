@@ -1,3 +1,21 @@
+rocket-switcher (1.0.0-146) unstable; urgency=medium
+
+  * Keep the layout name inside the tray square, between the two previous sizes.
+
+ -- Raketa Maintainer <maintainer@example.com>  Tue, 20 Oct 2026 14:55:00 +0300
+
+rocket-switcher (1.0.0-145) unstable; urgency=medium
+
+  * Draw the layout name large enough to read in the tray square.
+
+ -- Raketa Maintainer <maintainer@example.com>  Tue, 20 Oct 2026 14:50:00 +0300
+
+rocket-switcher (1.0.0-144) unstable; urgency=medium
+
+  * The tray square shows the current layout, Ру or En.
+
+ -- Raketa Maintainer <maintainer@example.com>  Tue, 20 Oct 2026 14:45:00 +0300
+
 rocket-switcher (1.0.0-143) unstable; urgency=medium
 
   * Tray icon is a colored rounded square with the letter Р.

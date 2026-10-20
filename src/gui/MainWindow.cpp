@@ -25,6 +25,8 @@
 #include <QCloseEvent>
 #include <QShowEvent>
 #include <QSignalBlocker>
+#include <QDBusConnection>
+#include <QDBusMessage>
 #include "DaemonClient.h"
 #include "TypoCorrector.h"
 
@@ -116,13 +118,13 @@ bool notifyExistingInstance() {
 
 // Rounded square the size of the other tray glyphs. The fill is the status:
 // green when auto-switch is on, red when it is off, gray when the daemon
-// is not listening. The letter is the product mark.
-QIcon markIcon(bool on, bool alive) {
+// is not listening. `label` is the current layout ("Ру" / "En") or "Р".
+QIcon markIcon(bool on, bool alive, const QString& label = QStringLiteral("Р")) {
     QIcon icon;
     const QColor bg = !alive ? QColor(110, 110, 110)
                               : on ? QColor(46, 125, 50)
                                    : QColor(183, 28, 28);
-    for (const int logical : {22, 32}) {
+    for (const int logical : {16, 22, 24, 32}) {
         for (const int scale : {1, 2}) {
             QPixmap pm(logical * scale, logical * scale);
             pm.setDevicePixelRatio(scale);
@@ -130,20 +132,69 @@ QIcon markIcon(bool on, bool alive) {
             QPainter p(&pm);
             p.setRenderHint(QPainter::Antialiasing, true);
             const qreal S = logical;
-            const qreal inset = S * 0.06;
+            const qreal inset = S * 0.08;
             const QRectF box(inset, inset, S - 2 * inset, S - 2 * inset);
             p.setPen(Qt::NoPen);
             p.setBrush(bg);
             p.drawRoundedRect(box, box.width() * 0.22, box.height() * 0.22);
             p.setPen(Qt::white);
-            QFont font(QStringLiteral("sans"), 1, QFont::Bold);
-            font.setPixelSize(qRound(box.height() * 0.62));
+            QFont font(QStringLiteral("Noto Sans"));
+            font.setWeight(QFont::Bold);
+            const bool two = label.size() > 1;
+            int px = qRound(box.height() * (two ? 0.56 : 0.72));
+            font.setPixelSize(px);
+            QFontMetrics fm(font);
+            while (px > 6 && (fm.horizontalAdvance(label) > box.width() * 0.80
+                              || fm.tightBoundingRect(label).height() > box.height() * 0.68)) {
+                font.setPixelSize(--px);
+                fm = QFontMetrics(font);
+            }
             p.setFont(font);
-            p.drawText(box, Qt::AlignCenter, QStringLiteral("Р"));
+            const QRect tight = fm.tightBoundingRect(label);
+            p.drawText(QPointF(box.center().x() - tight.width() / 2.0 - tight.left(),
+                               box.center().y() - tight.height() / 2.0 - tight.top()),
+                       label);
             icon.addPixmap(pm);
         }
     }
     return icon;
+}
+
+QString layoutLabel() {
+    static QString cached = QStringLiteral("Р");
+    int en = 0;
+    int ru = 1;
+    QFile file(QDir::homePath() + QStringLiteral("/.config/kxkbrc"));
+    if (file.open(QIODevice::ReadOnly)) {
+        while (!file.atEnd()) {
+            const QByteArray line = file.readLine().trimmed();
+            if (!line.startsWith("LayoutList=")) continue;
+            const QStringList parts = QString::fromUtf8(line.mid(11)).split(',', Qt::SkipEmptyParts);
+            en = -1;
+            ru = -1;
+            for (int i = 0; i < parts.size(); ++i) {
+                QString base = parts[i].trimmed();
+                const int paren = base.indexOf('(');
+                if (paren >= 0) base.truncate(paren);
+                base = base.trimmed();
+                if (en < 0 && (base == "us" || base == "gb" || base == "uk" || base == "en"))
+                    en = i;
+                if (ru < 0 && base.startsWith("ru")) ru = i;
+            }
+            break;
+        }
+    }
+
+    QDBusMessage msg = QDBusMessage::createMethodCall(
+        QStringLiteral("org.kde.keyboard"), QStringLiteral("/Layouts"),
+        QStringLiteral("org.kde.KeyboardLayouts"), QStringLiteral("getLayout"));
+    const QDBusMessage reply = QDBusConnection::sessionBus().call(msg, QDBus::Block, 200);
+    if (reply.type() != QDBusMessage::ReplyMessage || reply.arguments().isEmpty())
+        return cached;
+    const int idx = reply.arguments().at(0).toInt();
+    if (ru >= 0 && idx == ru) cached = QStringLiteral("Ру");
+    else if (en >= 0 && idx == en) cached = QStringLiteral("En");
+    return cached;
 }
 
 } // namespace
@@ -749,9 +800,10 @@ void MainWindow::setupTray() {
             refreshTray();
             return;
         }
-        trayIcon_->setIcon(markIcon(on, true));
-        trayIcon_->setToolTip(on ? tr("Ракета: автопереключение включено")
-                                 : tr("Ракета: автопереключение выключено"));
+        const QString layout = layoutLabel();
+        trayIcon_->setIcon(markIcon(on, true, layout));
+        trayIcon_->setToolTip(on ? tr("Ракета: %1, автопереключение включено").arg(layout)
+                                 : tr("Ракета: %1, автопереключение выключено").arg(layout));
         if (autoEnabled_) autoEnabled_->setChecked(on);
     });
     connect(showAct, &QAction::triggered, this, [this]() {
@@ -773,7 +825,7 @@ void MainWindow::setupTray() {
             });
 
     auto* timer = new QTimer(this);
-    timer->setInterval(1500);
+    timer->setInterval(500);
     connect(timer, &QTimer::timeout, this, &MainWindow::refreshTray);
     timer->start();
     refreshTray();
@@ -786,18 +838,19 @@ void MainWindow::refreshTray() {
     const QString reply = daemonCommand(QStringLiteral("STATUS"));
     const bool alive = reply == QLatin1String("AUTO 1") || reply == QLatin1String("AUTO 0");
     const bool on = reply == QLatin1String("AUTO 1");
+    const QString layout = layoutLabel();
     if (trayAuto_) {
         const QSignalBlocker block(trayAuto_);
         trayAuto_->setChecked(on);
         trayAuto_->setEnabled(alive);
     }
-    trayIcon_->setIcon(markIcon(on, alive));
+    trayIcon_->setIcon(markIcon(on, alive, layout));
     if (!alive)
-        trayIcon_->setToolTip(tr("Ракета: демон не запущен"));
+        trayIcon_->setToolTip(tr("Ракета: %1, демон не запущен").arg(layout));
     else if (on)
-        trayIcon_->setToolTip(tr("Ракета: автопереключение включено"));
+        trayIcon_->setToolTip(tr("Ракета: %1, автопереключение включено").arg(layout));
     else
-        trayIcon_->setToolTip(tr("Ракета: автопереключение выключено"));
+        trayIcon_->setToolTip(tr("Ракета: %1, автопереключение выключено").arg(layout));
 }
 
 void MainWindow::closeEvent(QCloseEvent* event) {

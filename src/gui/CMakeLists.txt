@@ -1,4 +1,4 @@
-find_package(Qt6 REQUIRED COMPONENTS Widgets)
+find_package(Qt6 REQUIRED COMPONENTS Widgets DBus)
 
 qt_standard_project_setup()
 
@@ -12,6 +12,7 @@ qt_add_executable(rocket-switcher-config
 target_link_libraries(rocket-switcher-config
     PRIVATE
         Qt6::Widgets
+        Qt6::DBus
         PuntoSwitcher::Core
 )
 
