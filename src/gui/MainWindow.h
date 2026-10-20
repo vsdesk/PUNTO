@@ -51,6 +51,9 @@ private:
     void loadNeverWords();
     void saveNeverWords();
     QString neverWordsPath() const;
+    void loadTypoRules();
+    void saveTypoRules();
+    QString typoRulesPath() const;
     void refreshTray();
     QString configPath() const;
     void reloadFcitx5();
@@ -72,6 +75,8 @@ private:
     QSpinBox*       minWordLen_;
     QDoubleSpinBox* confidence_;
     QPlainTextEdit* neverWords_ = nullptr;
+    QCheckBox*      typoEnabled_ = nullptr;
+    QPlainTextEdit* typoRules_ = nullptr;
 
     QSystemTrayIcon* trayIcon_ = nullptr;
     QAction*         trayAuto_ = nullptr;

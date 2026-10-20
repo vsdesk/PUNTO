@@ -12,6 +12,7 @@ qt_add_executable(rocket-switcher-config
 target_link_libraries(rocket-switcher-config
     PRIVATE
         Qt6::Widgets
+        PuntoSwitcher::Core
 )
 
 if(BUILD_FCITX)

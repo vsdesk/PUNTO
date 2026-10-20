@@ -3,6 +3,7 @@ add_library(punto-core STATIC
     WordSwapper.cpp
     AutoSwitchHeuristic.cpp
     WordDictionary.cpp
+    TypoCorrector.cpp
 )
 
 target_include_directories(punto-core

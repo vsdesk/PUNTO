@@ -171,6 +171,7 @@ DaemonConfig DaemonConfig::loadDefault() {
                     else if (key == "undo") c.undoSpec = val;
                 } else if (section == "autoswitch") {
                     if (key == "enabled") c.autoSwitchEnabled = parseBool(val);
+                    else if (key == "typo_correct") c.typoCorrectEnabled = parseBool(val);
                     else if (key == "min_word_length") {
                         try { c.minWordLength = std::stoi(val); } catch (...) {}
                     }                     else if (key == "confidence_threshold") {
@@ -219,6 +220,7 @@ bool DaemonConfig::save() const {
     out << "undo=" << undoSpec << "\n\n";
     out << "[autoswitch]\n";
     out << "enabled=" << (autoSwitchEnabled ? "true" : "false") << "\n";
+    out << "typo_correct=" << (typoCorrectEnabled ? "true" : "false") << "\n";
     out << "min_word_length=" << minWordLength << "\n";
     out << "confidence_threshold=" << confidenceThreshold << "\n";
     out << "min_plausible_dominant_bigram_score=" << minPlausibleDominantBigramScore << "\n\n";

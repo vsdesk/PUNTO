@@ -3,6 +3,7 @@
 #include "../core/CharMapping.h"
 #include "../core/Utf8Utils.h"
 #include "../core/DaemonEndpoint.h"
+#include "../core/TypoCorrector.h"
 #include "../core/WordDictionary.h"
 #include "../core/WordSwapper.h"
 #include "SessionEnv.h"
@@ -247,6 +248,7 @@ static unsigned int keyNameToCode(const std::string& name) {
 
 PuntoDaemon::PuntoDaemon(DaemonConfig cfg) : cfg_(std::move(cfg)), layout_(cfg_) {
     applyHeuristic();
+    TypoCorrector::reload();
 
     parseHotkey(cfg_.swapLastSpec, hkSwapLast_);
     parseHotkey(cfg_.swapSelectionSpec, hkSwapSel_);
@@ -766,6 +768,7 @@ void PuntoDaemon::serviceControl() {
                 reply = "OK\n";
             } else if (cmd == "RELOAD") {
                 WordDictionary::reload();
+                TypoCorrector::reload();
                 std::cerr << "rocket-switcher-daemon: dictionary reloaded en="
                           << WordDictionary::instance().englishSize()
                           << " ru=" << WordDictionary::instance().russianSize() << "\n";

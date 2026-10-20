@@ -77,6 +77,8 @@ private:
     struct TypingUndo {
         bool                   valid      = false;
         bool                   selection  = false;
+        /// The replacement was typed as text, not replayed as the original keys.
+        bool                   textReplace = false;
         std::vector<Keystroke> keys;
         int                    layoutIndex = -1;
         std::string            boundaryUtf8;
@@ -168,6 +170,9 @@ private:
     void commitWord(const Keystroke& boundary);
     /// Returns true when the boundary key was replaced and must not be forwarded.
     bool onWordBoundary(const Keystroke& boundary);
+    /// Backspace the typed word and type a typo fix. The boundary key is left
+    /// for the caller to forward. False when nothing was changed.
+    bool applyTypoCorrection(const Keystroke& boundary, const std::string& typed, int layout);
 
     void openMice();
     void closeMice();

@@ -26,6 +26,7 @@
 #include <QShowEvent>
 #include <QSignalBlocker>
 #include "DaemonClient.h"
+#include "TypoCorrector.h"
 
 #include <cerrno>
 #include <cstdio>
@@ -456,6 +457,38 @@ void MainWindow::buildUI() {
 
     tabs->addTab(autoTab, tr("Автопереключение"));
 
+    // ---- Tab: typos ----
+    auto* typoTab = new QWidget;
+    auto* typoLayout = new QFormLayout(typoTab);
+    typoLayout->setSpacing(8);
+
+    typoEnabled_ = new QCheckBox(tr("Исправлять опечатки"), this);
+    typoEnabled_->setToolTip(
+        tr("Отдельно от автопереключения. Срабатывает, когда слово решили не переводить."));
+
+    typoRules_ = new QPlainTextEdit(this);
+    typoRules_->setPlaceholderText(tr("почемуто = почему-то"));
+    typoRules_->setMinimumHeight(160);
+    typoRules_->setToolTip(
+        tr("Точные замены, по одной в строке: как набрали = как должно быть.\n"
+           "Можно писать «->». Строка с # — комментарий.\n"
+           "Пустой файл отключает только эти замены."));
+    typoLayout->addRow(typoEnabled_);
+    typoLayout->addRow(tr("Правила:"), typoRules_);
+
+    auto* typoNote = new QLabel(
+        tr("<small><i>Кроме списка, при включённом переключателе правятся: "
+           "две заглавные в начале («ПРивет»), буква с клавиши знака "
+           "(«пирогб» → «пирог,», «привет1» → «привет!», «9хорошо» → «(хорошо»), "
+           "пробел в «приветЭто», если обе части есть в словаре, "
+           "и одна опечатка, если в словаре ровно один вариант "
+           "(«привте» → «привет»). Два варианта не трогаются: «bokk» похоже "
+           "и на «book», и на «boko».</i></small>"));
+    typoNote->setWordWrap(true);
+    typoLayout->addRow(typoNote);
+
+    tabs->addTab(typoTab, tr("Опечатки"));
+
     // ---- Tab 3: Debug / Log ----
     auto* debugTab = new QWidget;
     auto* dbgLayout = new QFormLayout(debugTab);
@@ -545,6 +578,8 @@ void MainWindow::loadConfig() {
 
     autoEnabled_->setChecked(
         cfg.value("AutoSwitch", true).toBool());
+    if (typoEnabled_)
+        typoEnabled_->setChecked(cfg.value("TypoCorrect", true).toBool());
     minWordLen_->setValue(
         cfg.value("MinWordLength", DEFAULT_MIN_WORD_LEN).toInt());
     int pct = cfg.value("ConfidenceThresholdPct",
@@ -581,8 +616,10 @@ void MainWindow::loadConfig() {
     minWordLen_->setValue(cfg.value("min_word_length", DEFAULT_MIN_WORD_LEN).toInt());
     confidence_->setValue(cfg.value("confidence_threshold", DEFAULT_CONFIDENCE).toDouble());
     cfg.endGroup();
+    typoEnabled_->setChecked(cfg.value("autoswitch/typo_correct", true).toBool());
 #endif
     loadNeverWords();
+    loadTypoRules();
 }
 
 void MainWindow::saveConfig() {
@@ -596,6 +633,8 @@ void MainWindow::saveConfig() {
     cfg.setValue("ToggleAutoSwitch",   hkToggleAuto_->fcitxString());
     cfg.setValue("UndoLastSwitch",    hkUndoSwitch_->fcitxString());
     cfg.setValue("AutoSwitch",            autoEnabled_->isChecked());
+    if (typoEnabled_)
+        cfg.setValue("TypoCorrect", typoEnabled_->isChecked());
     cfg.setValue("MinWordLength",         minWordLen_->value());
     cfg.setValue("ConfidenceThresholdPct", qRound(confidence_->value() * 100));
     cfg.setValue("LogLevel",           logLevel_->currentData().toString());
@@ -618,11 +657,13 @@ void MainWindow::saveConfig() {
     cfg.setValue("enabled", autoEnabled_->isChecked());
     cfg.setValue("min_word_length", minWordLen_->value());
     cfg.setValue("confidence_threshold", confidence_->value());
+    cfg.setValue("typo_correct", typoEnabled_ && typoEnabled_->isChecked());
     cfg.endGroup();
 #endif
 
     cfg.sync();
     saveNeverWords();
+    saveTypoRules();
 }
 
 #if PUNTO_WITH_FCITX
@@ -679,6 +720,34 @@ void MainWindow::saveNeverWords() {
     QFile file(path);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) return;
     QByteArray data = neverWords_->toPlainText().toUtf8();
+    if (!data.isEmpty() && !data.endsWith('\n')) data.append('\n');
+    file.write(data);
+}
+
+QString MainWindow::typoRulesPath() const {
+    return QDir::homePath() + "/.config/rocket-switcher/dict/typos.txt";
+}
+
+void MainWindow::loadTypoRules() {
+    if (!typoRules_) return;
+    QString path = typoRulesPath();
+    const QString old = QDir::homePath() + "/.config/punto-switcher/dict/typos.txt";
+    if (!QFileInfo::exists(path) && QFileInfo::exists(old)) path = old;
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        typoRules_->setPlainText(QString::fromStdString(punto::TypoCorrector::defaultRulesText()));
+        return;
+    }
+    typoRules_->setPlainText(QString::fromUtf8(file.readAll()));
+}
+
+void MainWindow::saveTypoRules() {
+    if (!typoRules_) return;
+    const QString path = typoRulesPath();
+    QDir().mkpath(QFileInfo(path).absolutePath());
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) return;
+    QByteArray data = typoRules_->toPlainText().toUtf8();
     if (!data.isEmpty() && !data.endsWith('\n')) data.append('\n');
     file.write(data);
 }
@@ -790,6 +859,9 @@ void MainWindow::onRestoreDefaults() {
     minWordLen_->setValue(DEFAULT_MIN_WORD_LEN);
     confidence_->setValue(DEFAULT_CONFIDENCE);
     if (neverWords_) neverWords_->clear();
+    if (typoEnabled_) typoEnabled_->setChecked(true);
+    if (typoRules_)
+        typoRules_->setPlainText(QString::fromStdString(punto::TypoCorrector::defaultRulesText()));
 #if !PUNTO_WITH_FCITX
     if (daemonPassthrough_) daemonPassthrough_->setChecked(false);
     if (daemonInjectPasteFirst_) daemonInjectPasteFirst_->setChecked(false);

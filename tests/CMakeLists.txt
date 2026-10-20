@@ -5,6 +5,7 @@ add_executable(punto-tests
     test_mapping.cpp
     test_swapper.cpp
     test_heuristic.cpp
+    test_typo.cpp
 )
 
 target_link_libraries(punto-tests

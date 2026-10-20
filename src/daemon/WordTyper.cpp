@@ -1,6 +1,7 @@
 #include "PuntoDaemon.h"
 
 #include "../core/CharMapping.h"
+#include "../core/TypoCorrector.h"
 #include "../core/Utf8Utils.h"
 #include "../core/WordDictionary.h"
 #include "../core/WordSwapper.h"
@@ -324,6 +325,7 @@ bool PuntoDaemon::convertKeys(const std::vector<Keystroke>& keys, int fromLayout
 
     typingUndo_.valid         = true;
     typingUndo_.selection     = false;
+    typingUndo_.textReplace   = false;
     typingUndo_.keys          = keys;
     typingUndo_.layoutIndex   = fromLayout;
     typingUndo_.boundaryUtf8  = boundaryUtf8;
@@ -361,8 +363,13 @@ bool PuntoDaemon::onWordBoundary(const Keystroke& boundary) {
         return false;
     };
 
-    if (wordFrozen_ || !cfg_.autoSwitchEnabled || lay < 0 || other < 0
-        || layEnum == CharMapping::Layout::Unknown || typed.empty()) {
+    const bool canSwitch = !wordFrozen_ && cfg_.autoSwitchEnabled && lay >= 0 && other >= 0
+                           && layEnum != CharMapping::Layout::Unknown && !typed.empty();
+    if (!canSwitch) {
+        if (!wordFrozen_ && cfg_.typoCorrectEnabled && lay >= 0 && !typed.empty()
+            && applyTypoCorrection(boundary, typed, lay)) {
+            return false;
+        }
         return finish();
     }
 
@@ -372,6 +379,7 @@ bool PuntoDaemon::onWordBoundary(const Keystroke& boundary) {
         if (debugOn()) {
             std::cerr << "rocket-switcher-daemon: keep \"" << typed << "\"\n";
         }
+        if (cfg_.typoCorrectEnabled && applyTypoCorrection(boundary, typed, lay)) return false;
         return finish();
     }
 
@@ -396,6 +404,52 @@ bool PuntoDaemon::onWordBoundary(const Keystroke& boundary) {
 
     lastWordKeys_      = wordKeys_;
     lastWordLayout_    = other;
+    lastBoundaryUtf8_  = boundaryUtf;
+    lastBoundaryValid_ = !boundaryUtf.empty();
+    wordKeys_.clear();
+    wordLayout_ = -1;
+    wordFrozen_ = false;
+    return true;
+}
+
+bool PuntoDaemon::applyTypoCorrection(const Keystroke& boundary, const std::string& typed, int layout) {
+    const CharMapping::Layout layEnum = layoutEnum(layout);
+    if (layEnum != CharMapping::Layout::Russian && layEnum != CharMapping::Layout::English)
+        return false;
+    const std::string fixed = TypoCorrector::instance().correct(utf8_to_utf32(typed), layEnum);
+    if (fixed.empty() || fixed == typed || !canTypeText(fixed)) return false;
+
+    std::string boundaryUtf = keys_.interpret(boundary, layout);
+    if (boundaryUtf.empty()) {
+        if (boundary.code == KEY_SPACE) boundaryUtf = " ";
+        else if (boundary.code == KEY_ENTER || boundary.code == KEY_KPENTER) boundaryUtf = "\n";
+        else if (boundary.code == KEY_TAB) boundaryUtf = "\t";
+    }
+
+    if (debugOn()) {
+        std::cerr << "rocket-switcher-daemon: typo \"" << typed << "\" → \"" << fixed << "\"\n";
+    }
+
+    releaseModifiersForInject();
+    tapBackspaces(static_cast<int>(utf8_to_utf32(typed).size()));
+    if (!typeText(fixed)) {
+        (void)typeText(typed);
+        restoreHeldModifiers();
+        return false;
+    }
+    restoreHeldModifiers();
+
+    typingUndo_.valid         = true;
+    typingUndo_.selection     = false;
+    typingUndo_.textReplace   = true;
+    typingUndo_.keys.clear();
+    typingUndo_.layoutIndex   = layout;
+    typingUndo_.boundaryUtf8  = boundaryUtf;
+    typingUndo_.originalText  = typed;
+    typingUndo_.deleteCpCount = static_cast<int>(utf8_to_utf32(fixed).size() + utf8_to_utf32(boundaryUtf).size());
+
+    lastWordKeys_.clear();
+    lastWordLayout_    = -1;
     lastBoundaryUtf8_  = boundaryUtf;
     lastBoundaryValid_ = !boundaryUtf.empty();
     wordKeys_.clear();
@@ -568,6 +622,7 @@ bool PuntoDaemon::doSwapSelection() {
 
     typingUndo_.valid         = true;
     typingUndo_.selection     = true;
+    typingUndo_.textReplace   = false;
     typingUndo_.keys.clear();
     typingUndo_.layoutIndex   = -1;
     typingUndo_.boundaryUtf8.clear();
@@ -580,6 +635,19 @@ bool PuntoDaemon::doSwapSelection() {
 
 bool PuntoDaemon::doUndoLast() {
     if (!typingUndo_.valid) return false;
+    if (typingUndo_.textReplace) {
+        releaseModifiersForInject();
+        tapBackspaces(typingUndo_.deleteCpCount);
+        ::usleep(30000);
+        const std::string back = typingUndo_.originalText + typingUndo_.boundaryUtf8;
+        const bool restored = canTypeText(back) && typeText(back);
+        restoreHeldModifiers();
+        if (!restored) return false;
+        typingUndo_.valid = false;
+        forgetTyping();
+        return true;
+    }
+
     if (typingUndo_.selection) {
         const std::string saved = readClipboard();
         releaseModifiersForInject();

@@ -1,3 +1,9 @@
+rocket-switcher (1.0.0-142) unstable; urgency=medium
+
+  * Optional typo fixes, with an editable replacement list.
+
+ -- Raketa Maintainer <maintainer@example.com>  Tue, 20 Oct 2026 09:45:00 +0300
+
 rocket-switcher (1.0.0-141) unstable; urgency=medium
 
   * Grab a Bluetooth keyboard again after its event node comes back.
