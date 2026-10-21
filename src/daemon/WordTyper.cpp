@@ -78,13 +78,21 @@ PuntoDaemon::KeyRole PuntoDaemon::classifyKey(const Keystroke& ks, int layout) c
     }
     // "руддщ" is already "hello". The next key is "ю" here and "." in English,
     // so it ends the word and is retyped as a period. "работа" + "ю" stays one
-    // word: the stem is Russian and does not switch.
+    // word: the stem is Russian and does not switch. "оши" alone is the English
+    // word "jib", but the next key "б" (a comma in English) still continues
+    // "ошибка" — cutting there replays a comma and the rest of the word, and a
+    // later swap, no longer see one word. An exception for "ошибка" or "ошиб"
+    // would not match the fragment "оши" either.
     if (!wordFrozen_ && cfg_.autoSwitchEnabled && !wordKeys_.empty() && isLetterCp(cur)
         && haveAlt && WordSwapper::isWordBoundary(alt)) {
         const std::string typed = keys_.interpret(wordKeys_, layout);
         const std::string swapped = keys_.interpret(wordKeys_, other);
-        if (!typed.empty() && heuristic_.shouldSwitch(typed, layoutEnum(layout), swapped))
-            return KeyRole::Boundary;
+        if (!typed.empty() && heuristic_.shouldSwitch(typed, layoutEnum(layout), swapped)) {
+            std::u32string cont = utf8_to_utf32(typed);
+            cont.push_back(cur);
+            if (!WordDictionary::instance().extendsKnownWord(cont, layoutEnum(layout)))
+                return KeyRole::Boundary;
+        }
     }
     return KeyRole::Word;
 }

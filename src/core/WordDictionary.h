@@ -18,6 +18,11 @@ public:
     static void reload();
 
     bool contains(const std::u32string& word, CharMapping::Layout layout) const;
+    // True when some word of this layout, or an entry in never.txt / always.txt,
+    // starts with `prefix` (an exact entry counts). Used so a letter that is
+    // punctuation in the other layout does not end a word still being typed:
+    // "оши" is English "jib", but "ошиб" continues "ошибка".
+    bool extendsKnownWord(const std::u32string& prefix, CharMapping::Layout layout) const;
     // never.txt: do not auto-switch if either form is listed.
     bool blocked(const std::u32string& word) const;
     // always.txt: prefer the swapped form when the typed form is not a real word.

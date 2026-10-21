@@ -2,10 +2,12 @@
 
 #include "Utf8Utils.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <unordered_set>
+#include <vector>
 
 namespace punto {
 
@@ -32,7 +34,31 @@ struct Bags {
     std::unordered_set<std::string> ru;
     std::unordered_set<std::string> never;
     std::unordered_set<std::string> always;
+    // Same keys, sorted, so a typed prefix can be matched with lower_bound.
+    std::vector<std::string> enSorted;
+    std::vector<std::string> ruSorted;
+    std::vector<std::string> neverSorted;
+    std::vector<std::string> alwaysSorted;
 };
+
+void indexBags(Bags& bags) {
+    auto fill = [](const std::unordered_set<std::string>& src, std::vector<std::string>& dst) {
+        dst.assign(src.begin(), src.end());
+        std::sort(dst.begin(), dst.end());
+    };
+    fill(bags.en, bags.enSorted);
+    fill(bags.ru, bags.ruSorted);
+    fill(bags.never, bags.neverSorted);
+    fill(bags.always, bags.alwaysSorted);
+}
+
+// `sorted` holds folded dictionary keys. True when one of them starts with `prefix`.
+bool hasPrefix(const std::vector<std::string>& sorted, const std::string& prefix) {
+    if (prefix.empty()) return false;
+    const auto it = std::lower_bound(sorted.begin(), sorted.end(), prefix);
+    if (it == sorted.end()) return false;
+    return it->size() >= prefix.size() && it->compare(0, prefix.size(), prefix) == 0;
+}
 
 void addLine(std::unordered_set<std::string>& bag, const std::string& line) {
     std::string w = line;
@@ -99,6 +125,7 @@ Bags loadBags() {
         loadDir(std::filesystem::path(home) / ".config/rocket-switcher/dict", bags);
         loadDir(std::filesystem::path(home) / ".config/punto-switcher/dict", bags);
     }
+    indexBags(bags);
     return bags;
 }
 
@@ -128,6 +155,18 @@ bool WordDictionary::contains(const std::u32string& word, CharMapping::Layout la
     if (layout == CharMapping::Layout::English) return bags().en.count(key) != 0;
     if (layout == CharMapping::Layout::Russian) return bags().ru.count(key) != 0;
     return false;
+}
+
+bool WordDictionary::extendsKnownWord(const std::u32string& prefix,
+                                      CharMapping::Layout layout) const {
+    if (prefix.empty()) return false;
+    if (layout != CharMapping::Layout::English && layout != CharMapping::Layout::Russian)
+        return false;
+    const std::string key = foldKey(prefix);
+    const Bags& b = bags();
+    const std::vector<std::string>& words =
+        layout == CharMapping::Layout::English ? b.enSorted : b.ruSorted;
+    return hasPrefix(words, key) || hasPrefix(b.neverSorted, key) || hasPrefix(b.alwaysSorted, key);
 }
 
 bool WordDictionary::blocked(const std::u32string& word) const {

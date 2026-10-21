@@ -315,6 +315,49 @@ Known limitations:
 )";
 }
 
+TEST(Heuristic, OsibkaIsNotCutWhenBeContinuesTheWord) {
+    AutoSwitchHeuristic h;
+    // о→j ш→i и→b, and "jib" is an English word. The next letter б is a comma
+    // on the English layout, but "ошиб" is the start of "ошибка".
+    EXPECT_TRUE(h.shouldSwitch("оши", CharMapping::Layout::Russian));
+    EXPECT_TRUE(WordDictionary::instance().extendsKnownWord(std::u32string(U"ошиб"),
+                                                            CharMapping::Layout::Russian));
+    EXPECT_FALSE(h.shouldSwitch("ошибка", CharMapping::Layout::Russian));
+    // "руддщ" is "hello". The next key "ю" is a period in English and does not
+    // continue a Russian word, so the word still ends there.
+    EXPECT_FALSE(WordDictionary::instance().extendsKnownWord(std::u32string(U"руддщю"),
+                                                             CharMapping::Layout::Russian));
+    EXPECT_TRUE(h.shouldSwitch("руддщ", CharMapping::Layout::Russian));
+}
+
+TEST(Heuristic, NeverListKeepsAPrefixThatIsNotInTheDictionary) {
+    namespace fs = std::filesystem;
+    struct RestoreDict {
+        ~RestoreDict() {
+            ::unsetenv("PUNTO_DICT_DIR");
+            WordDictionary::reload();
+        }
+    } restore;
+    const fs::path dir = fs::temp_directory_path() / "rocket-switcher-extends-test";
+    fs::remove_all(dir);
+    fs::create_directories(dir);
+    {
+        std::ofstream out(dir / "never.txt");
+        out << "ыыыбцыы\n";
+    }
+    ASSERT_EQ(::setenv("PUNTO_DICT_DIR", dir.c_str(), 1), 0);
+    WordDictionary::reload();
+    EXPECT_TRUE(WordDictionary::instance().extendsKnownWord(std::u32string(U"ыыыб"),
+                                                            CharMapping::Layout::Russian));
+    EXPECT_TRUE(WordDictionary::instance().blocked(std::u32string(U"ыыыбцыы")));
+
+    ::unsetenv("PUNTO_DICT_DIR");
+    WordDictionary::reload();
+    EXPECT_FALSE(WordDictionary::instance().extendsKnownWord(std::u32string(U"ыыыб"),
+                                                             CharMapping::Layout::Russian));
+    fs::remove_all(dir);
+}
+
 TEST(Heuristic, NeverListBlocksSwitchUntilReload) {
     namespace fs = std::filesystem;
     struct RestoreDict {
