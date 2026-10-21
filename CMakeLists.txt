@@ -89,5 +89,8 @@ install(FILES
     ${CMAKE_SOURCE_DIR}/data/dict/en.txt
     ${CMAKE_SOURCE_DIR}/data/dict/ru.txt
     DESTINATION ${CMAKE_INSTALL_DATADIR}/rocket-switcher/dict)
+install(FILES
+    ${CMAKE_SOURCE_DIR}/data/sounds/switch.wav
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/rocket-switcher/sounds)
 
 include(CPack)

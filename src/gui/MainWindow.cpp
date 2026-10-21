@@ -443,6 +443,11 @@ void MainWindow::buildUI() {
     autoLayout->setSpacing(8);
 
     autoEnabled_ = new QCheckBox(tr("Автоматически исправлять раскладку"), this);
+    soundEnabled_ = new QCheckBox(tr("Звук при переключении и исправлении опечатки"), this);
+    soundEnabled_->setChecked(true);
+    soundEnabled_->setToolTip(
+        tr("Короткий сигнал, когда программа переводит слово в другую раскладку "
+           "или исправляет опечатку. Ручное переключение раскладки в системе звук не включает."));
 
     minWordLen_ = new QSpinBox(this);
     minWordLen_->setRange(1, 20);
@@ -461,6 +466,7 @@ void MainWindow::buildUI() {
            "Обычно хватает 0,10–0,25."));
 
     autoLayout->addRow(autoEnabled_);
+    autoLayout->addRow(soundEnabled_);
     autoLayout->addRow(tr("Минимальная длина слова:"), minWordLen_);
     autoLayout->addRow(tr("Порог уверенности:"), confidence_);
 
@@ -638,6 +644,8 @@ void MainWindow::loadConfig() {
 
     cfg.beginGroup("autoswitch");
     autoEnabled_->setChecked(cfg.value("enabled", true).toBool());
+    if (soundEnabled_)
+        soundEnabled_->setChecked(cfg.value("sound", true).toBool());
     minWordLen_->setValue(cfg.value("min_word_length", DEFAULT_MIN_WORD_LEN).toInt());
     confidence_->setValue(cfg.value("confidence_threshold", DEFAULT_CONFIDENCE).toDouble());
     cfg.endGroup();
@@ -680,6 +688,7 @@ void MainWindow::saveConfig() {
     cfg.endGroup();
     cfg.beginGroup("autoswitch");
     cfg.setValue("enabled", autoEnabled_->isChecked());
+    cfg.setValue("sound", !soundEnabled_ || soundEnabled_->isChecked());
     cfg.setValue("min_word_length", minWordLen_->value());
     cfg.setValue("confidence_threshold", confidence_->value());
     cfg.setValue("typo_correct", typoEnabled_ && typoEnabled_->isChecked());
@@ -883,6 +892,7 @@ void MainWindow::onRestoreDefaults() {
     hkToggleAuto_->setFromFcitxString(DEFAULT_TOGGLE_AUTO);
     hkUndoSwitch_->setFromFcitxString(DEFAULT_UNDO_SWITCH);
     autoEnabled_->setChecked(true);
+    if (soundEnabled_) soundEnabled_->setChecked(true);
     minWordLen_->setValue(DEFAULT_MIN_WORD_LEN);
     confidence_->setValue(DEFAULT_CONFIDENCE);
     if (neverWords_) neverWords_->clear();

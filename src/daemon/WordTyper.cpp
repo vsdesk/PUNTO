@@ -1,5 +1,6 @@
 #include "PuntoDaemon.h"
 
+#include "ActionSound.h"
 #include "../core/CharMapping.h"
 #include "../core/TypoCorrector.h"
 #include "../core/Utf8Utils.h"
@@ -340,6 +341,7 @@ bool PuntoDaemon::convertKeys(const std::vector<Keystroke>& keys, int fromLayout
     typingUndo_.originalText  = typed;
     typingUndo_.deleteCpCount = static_cast<int>(utf8_to_utf32(swapped).size())
                               + (haveBoundary ? static_cast<int>(utf8_to_utf32(boundaryUtf8).size()) : 0);
+    playActionSound(cfg_.soundEnabled);
     return true;
 }
 
@@ -463,6 +465,7 @@ bool PuntoDaemon::applyTypoCorrection(const Keystroke& boundary, const std::stri
     wordKeys_.clear();
     wordLayout_ = -1;
     wordFrozen_ = false;
+    playActionSound(cfg_.soundEnabled);
     return true;
 }
 
@@ -638,6 +641,7 @@ bool PuntoDaemon::doSwapSelection() {
     typingUndo_.deleteCpCount = static_cast<int>(utf8_to_utf32(swapped).size());
     forgetTyping();
     typingUndo_.valid = true; // forgetTyping does not clear undo
+    playActionSound(cfg_.soundEnabled);
     return true;
 }
 

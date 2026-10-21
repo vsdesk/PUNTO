@@ -1,3 +1,10 @@
+rocket-switcher (1.0.0-149) unstable; urgency=medium
+
+  * Play a short bundled tone when a word changes layout or a typo is fixed.
+    The sound ships with the package and can be turned off in settings.
+
+ -- Raketa Maintainer <maintainer@example.com>  Wed, 21 Oct 2026 13:35:00 +0300
+
 rocket-switcher (1.0.0-148) unstable; urgency=medium
 
   * Do not switch "ошибка" at the fourth letter: "б" is a comma in English,

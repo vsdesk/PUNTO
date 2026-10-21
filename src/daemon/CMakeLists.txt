@@ -21,6 +21,7 @@ add_executable(rocket-switcher-daemon
     LayoutController.cpp
     XkbInterpreter.cpp
     WordTyper.cpp
+    ActionSound.cpp
     ../engine/InputTracker.cpp
 )
 

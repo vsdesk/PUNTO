@@ -23,6 +23,8 @@ struct DaemonConfig {
     bool   autoSwitchEnabled     = true;
     /// Separate from auto-switch: rules in typos.txt plus a few built-in fixes.
     bool   typoCorrectEnabled    = true;
+    /// Bundled cue after a layout conversion or a typo fix. On by default.
+    bool   soundEnabled          = true;
     int    minWordLength         = 3;
     /// Margin for swapped-vs-original bigram scores (daemon.ini: confidence_threshold).
     double confidenceThreshold = 0.18;

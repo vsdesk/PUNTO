@@ -72,6 +72,7 @@ private:
 
     // Auto-switch tab
     QCheckBox*      autoEnabled_;
+    QCheckBox*      soundEnabled_ = nullptr;
     QSpinBox*       minWordLen_;
     QDoubleSpinBox* confidence_;
     QPlainTextEdit* neverWords_ = nullptr;
