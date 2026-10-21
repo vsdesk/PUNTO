@@ -911,7 +911,7 @@ void MainWindow::onAbout() {
            "Автоисправление раскладки ru↔en (демон evdev, без Fcitx5).<br><br>"
 #endif
            "Лицензия: GPL-2.0+<br>"
-           "Исходный код: https://github.com/your-org/punto-switcher"));
+           "Исходный код: https://github.com/vsdesk/rocket-switcher"));
 }
 
 void MainWindow::refreshSetupStatus() {

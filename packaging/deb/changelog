@@ -1,3 +1,9 @@
+rocket-switcher (1.0.0-147) unstable; urgency=medium
+
+  * Point project links at github.com/vsdesk/rocket-switcher.
+
+ -- Raketa Maintainer <maintainer@example.com>  Wed, 21 Oct 2026 08:40:00 +0300
+
 rocket-switcher (1.0.0-146) unstable; urgency=medium
 
   * Keep the layout name inside the tray square, between the two previous sizes.

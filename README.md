@@ -8,7 +8,7 @@
 заменяет. Если остался файл `~/.config/punto-switcher/daemon.ini`, демон его
 прочитает, пока рядом нет `~/.config/rocket-switcher/daemon.ini`.
 
-Репозиторий: https://github.com/vsdesk/PUNTO
+Репозиторий: https://github.com/vsdesk/rocket-switcher
 
 Демону нужен доступ к `/dev/input` и `/dev/uinput` (группа `input`). Без этого
 репозиторий не подходит.
@@ -219,8 +219,8 @@ sudo apt install cmake build-essential pkg-config debhelper dh-cmake \
 ```
 
 ```bash
-git clone https://github.com/vsdesk/PUNTO
-cd PUNTO
+git clone https://github.com/vsdesk/rocket-switcher
+cd rocket-switcher
 
 cmake -B build -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DBUILD_FCITX=OFF
 cmake --build build -j$(nproc)

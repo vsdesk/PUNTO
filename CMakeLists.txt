@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.20)
 project(PuntoSwitcher
     VERSION 1.0.0
     DESCRIPTION "Ракета — ru↔en keyboard layout switcher (evdev daemon; optional Fcitx5)"
-    HOMEPAGE_URL "https://github.com/your-org/punto-switcher"
+    HOMEPAGE_URL "https://github.com/vsdesk/rocket-switcher"
     LANGUAGES CXX
 )
 

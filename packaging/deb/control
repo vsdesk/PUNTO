@@ -11,7 +11,7 @@ Build-Depends:
  libxkbcommon-dev
 Standards-Version: 4.6.2
 Rules-Requires-Root: no
-Homepage: https://github.com/your-org/punto-switcher
+Homepage: https://github.com/vsdesk/rocket-switcher
 
 Package: rocket-switcher
 Architecture: any

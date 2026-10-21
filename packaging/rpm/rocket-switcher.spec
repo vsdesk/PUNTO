@@ -6,7 +6,7 @@ Release:        %{deb_revision}%{?dist}
 Summary:        Ракета — automatic ru↔en keyboard layout corrector for Wayland
 
 License:        GPL-2.0+
-URL:            https://github.com/vsdesk/PUNTO
+URL:            https://github.com/vsdesk/rocket-switcher
 Source0:        %{name}-%{version}.tar.gz
 
 BuildRequires:  cmake >= 3.20

@@ -1,7 +1,7 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: punto-switcher
 Upstream-Contact: maintainer@example.com
-Source: https://github.com/your-org/punto-switcher
+Source: https://github.com/vsdesk/rocket-switcher
 
 Files: *
 Copyright: 2026 PuntoSwitcher Contributors
